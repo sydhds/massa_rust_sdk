@@ -1,0 +1,12 @@
+[workspace]
+members = [
+    "massa_rust_sc",
+    "hello_world",
+]
+resolver = "2"
+
+[profile.release]
+strip = true
+# # strip = "debuginfo" # strip but keep function name
+lto = true # longer link time but can reduce size
+

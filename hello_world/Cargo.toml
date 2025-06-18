@@ -1,0 +1,11 @@
+[package]
+name = "hello_world"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+lol_alloc = "0.4"
+# massa_rust_sc = { path = "../massa_rust_sc" }
