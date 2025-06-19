@@ -1,5 +1,6 @@
 #![no_std]
 
+/*
 use lol_alloc::LeakingPageAllocator;
 #[global_allocator]
 static ALLOCATOR: LeakingPageAllocator = LeakingPageAllocator;
@@ -9,12 +10,16 @@ use alloc::{
     // format, 
     vec
 };
+*/
+
+use massa_rust_sc::{generateEvent, get_data, print_msg, set_data};
 // use core::ptr;
 // use alloc::vec::Vec;
 
 // use massa_rust_sc::__new;
 // use massa_rust_sc::__new;
 
+/*
 // Module name provided by the host (Wasmer)
 #[link(wasm_import_module = "massa")]
 extern "C" {
@@ -30,10 +35,12 @@ extern "C" {
     #[link_name = "assembly_script_get_data"]
     fn get_data(key: i32) -> i32;
 }
+*/
 
 #[no_mangle]
 extern "C" fn constructor() {
-
+    
+    /*
     let mut buffer: [u8; 8] = [0; 8];
     let msg_size = 4u32;
     buffer[0..4].copy_from_slice(msg_size.to_le_bytes().as_slice());
@@ -49,7 +56,10 @@ extern "C" fn constructor() {
             .offset(4) as i32;
         generateEvent(buffer_ptr);
     }
-
+    */
+    
+    print_msg();
+    
     // Storage set
     {
         let mut key: [u8; 4+24] = [0; 4+24];
@@ -114,6 +124,7 @@ extern "C" fn constructor() {
     }
 }
 
+/*
 #[no_mangle]
 // extern "C" fn __new(size_ptr: *mut u8, id_ptr: *mut u8) -> *mut u8 {
 extern "C" fn __new(size: usize, _id: i32) -> *mut u8 {
@@ -134,6 +145,7 @@ extern "C" fn __new(size: usize, _id: i32) -> *mut u8 {
         v.leak().as_mut_ptr().offset(HEADER_SIZE as isize)
     }
 }
+*/
 
 #[no_mangle]
 extern "C" fn hello() -> *mut u8 {
@@ -159,10 +171,11 @@ extern "C" fn hello() -> *mut u8 {
     value_ptr
 }
 
+/*
 #[panic_handler]
 fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
     // emit a wasm unreachable instruction if a panic occurs in our code
     core::arch::wasm32::unreachable()
 }
-
+*/
 

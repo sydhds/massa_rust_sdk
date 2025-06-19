@@ -1,0 +1,8 @@
+[package]
+name = "massa_rust_web3"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+jsonrpsee = { version = "0.24", features = ["full"] }
+massa_api_exports = { git = "https://github.com/massalabs/massa", package = "massa_api_exports" }

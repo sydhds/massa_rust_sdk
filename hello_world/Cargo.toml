@@ -7,5 +7,4 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-lol_alloc = "0.4"
-# massa_rust_sc = { path = "../massa_rust_sc" }
+massa_rust_sc = { path = "../massa_rust_sc" }

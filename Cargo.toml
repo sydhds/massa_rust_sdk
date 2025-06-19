@@ -1,7 +1,9 @@
 [workspace]
 members = [
     "massa_rust_sc",
+    "massa_rust_web3",
     "hello_world",
+    "hello_world_scripts",
 ]
 resolver = "2"
 
