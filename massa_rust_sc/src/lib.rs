@@ -23,7 +23,6 @@ extern "C" {
 }
 
 pub fn print_msg() {
-
     let mut buffer: [u8; 8] = [0; 8];
     let msg_size = 4u32;
     buffer[0..4].copy_from_slice(msg_size.to_le_bytes().as_slice());
@@ -34,12 +33,9 @@ pub fn print_msg() {
     buffer[7] = 0;
 
     unsafe {
-        let buffer_ptr = buffer
-            .as_mut_ptr()
-            .offset(4) as i32;
+        let buffer_ptr = buffer.as_mut_ptr().offset(4) as i32;
         generateEvent(buffer_ptr);
     }
-
 }
 
 #[no_mangle]
@@ -58,9 +54,7 @@ extern "C" fn __new(size: usize, _id: i32) -> *mut u8 {
     // v[16..header_size].copy_from_slice(&[32, 0, 0, 0]);
     v[16..HEADER_SIZE].copy_from_slice(&size.to_le_bytes());
 
-    unsafe {
-        v.leak().as_mut_ptr().offset(HEADER_SIZE as isize)
-    }
+    unsafe { v.leak().as_mut_ptr().offset(HEADER_SIZE as isize) }
 }
 
 #[panic_handler]
