@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
 massa_rust_web3 = { path = "../massa_rust_web3" }

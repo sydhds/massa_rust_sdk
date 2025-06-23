@@ -14,4 +14,4 @@ A rust sdk to develop smart contract for [Massa blockchain](www.massa.net)
 
 ### Deploy
 
-TODO
+* cargo run --bin hello_world_scripts

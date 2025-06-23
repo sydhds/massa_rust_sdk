@@ -984,6 +984,7 @@ name = "hello_world_scripts"
 version = "0.1.0"
 dependencies = [
  "massa_rust_web3",
+ "serde",
  "tokio",
 ]
 
@@ -1892,6 +1893,8 @@ version = "0.1.0"
 dependencies = [
  "jsonrpsee",
  "massa_api_exports",
+ "massa_models",
+ "serde",
 ]
 
 [[package]]
