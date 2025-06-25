@@ -57,8 +57,10 @@ extern "C" fn __new(size: usize, _id: i32) -> *mut u8 {
     unsafe { v.leak().as_mut_ptr().offset(HEADER_SIZE as isize) }
 }
 
+/*
 #[panic_handler]
 fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
     // emit a wasm unreachable instruction if a panic occurs in our code
     core::arch::wasm32::unreachable()
 }
+*/

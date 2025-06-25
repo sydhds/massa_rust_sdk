@@ -1,12 +1,11 @@
 use std::collections::VecDeque;
+use std::path::Path;
 use std::str::FromStr;
+use dotenv::dotenv;
 // third-party
 use serde::Deserialize;
 // internal
-use massa_rust_web3::{
-    Address, BUILDNET_URL, EventFilter, ReadOnlyCall, ReadOnlyResult, SCOutputEvent, Slot,
-    execute_read_only_call, get_events, get_status,
-};
+use massa_rust_web3::{Address, BUILDNET_URL, EventFilter, ReadOnlyCall, ReadOnlyResult, SCOutputEvent, Slot, execute_read_only_call, get_events, get_status, deploy_smart_contract, KeyPair};
 
 const CONTRACT_ADDRESS: &str = "AS1AArefHYqYd9KB8wcCkvgesDap2teidRdwPJA22DpZqFxPUxuY";
 const CALLER_ADDRESS: &str = "AU12NTxUbAFvHzrLH3XKwxkNgsjPqiAadnbthJz2v1TuNJEyWU2Cx";
@@ -26,10 +25,13 @@ async fn main() {
     let caller_address = Address::from_str(CALLER_ADDRESS).unwrap();
     println!("Caller address: {:?}", caller_address);
 
+    /*
     let node_status = get_status(BUILDNET_URL).await.unwrap();
     println!("{}", "#".repeat(20));
     println!("Node status: {}", node_status);
+    */
 
+    /*
     let event_filter = EventFilter {
         start: None,
         end: None,
@@ -43,7 +45,9 @@ async fn main() {
 
     println!("{}", "#".repeat(20));
     println!("Events for SC ({}): {:#?}", sc_address, events);
+    */
 
+    /*
     let read_function = "hello".to_string();
     // TODO: Builder pattern for ReadOnlyCallParams
     // TODO: define MAX_GAS const
@@ -65,4 +69,17 @@ async fn main() {
         .unwrap();
     println!("{}", "#".repeat(20));
     println!("Read (function: {}): {:#?}", read_function, hello);
+    */
+
+    dotenv().unwrap();
+    let pkey = std::env::var("PRIVATE_KEY").unwrap();
+    let keypair = KeyPair::from_str(pkey.as_str()).unwrap();
+
+    let sc_address = deploy_smart_contract(
+        BUILDNET_URL,
+        &keypair,
+        Path::new("target/wasm32-unknown-unknown/release/main.wasm")
+    ).await;
+    
+    println!("SC address: {:?}", sc_address);
 }

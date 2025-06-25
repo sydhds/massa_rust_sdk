@@ -4,6 +4,7 @@ members = [
     "massa_rust_web3",
     "hello_world",
     "hello_world_scripts",
+    "massa_sc_runner",
 ]
 resolver = "2"
 
@@ -11,4 +12,3 @@ resolver = "2"
 strip = true
 # # strip = "debuginfo" # strip but keep function name
 lto = true # longer link time but can reduce size
-
