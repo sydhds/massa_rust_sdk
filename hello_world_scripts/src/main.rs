@@ -5,7 +5,7 @@ use dotenv::dotenv;
 // third-party
 use serde::Deserialize;
 // internal
-use massa_rust_web3::{Address, BUILDNET_URL, EventFilter, ReadOnlyCall, ReadOnlyResult, SCOutputEvent, Slot, execute_read_only_call, get_events, get_status, deploy_smart_contract, KeyPair};
+use massa_rust_web3::{Address, BUILDNET_URL, EventFilter, ReadOnlyCall, ReadOnlyResult, SCOutputEvent, Slot, execute_read_only_call, get_events, get_status, deploy_smart_contract, KeyPair, get_operations, OperationId};
 
 const CONTRACT_ADDRESS: &str = "AS1AArefHYqYd9KB8wcCkvgesDap2teidRdwPJA22DpZqFxPUxuY";
 const CALLER_ADDRESS: &str = "AU12NTxUbAFvHzrLH3XKwxkNgsjPqiAadnbthJz2v1TuNJEyWU2Cx";
@@ -70,6 +70,18 @@ async fn main() {
     println!("{}", "#".repeat(20));
     println!("Read (function: {}): {:#?}", read_function, hello);
     */
+    
+    // get_operations
+    /*
+    let op_ids = vec![
+        OperationId::from_str("O12BwDbpLMWpzY4Kwqcp76rhkQZFngSQXp9KbSqrR1DT1Z23ozTq").unwrap(),
+    ];
+    let result = get_operations(BUILDNET_URL, op_ids).await;
+    println!("get_operations result: {:?}", result);
+    */
+    
+    // end get_operations
+    
 
     dotenv().unwrap();
     let pkey = std::env::var("PRIVATE_KEY").unwrap();

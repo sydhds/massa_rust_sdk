@@ -11,10 +11,10 @@ use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_param
 use serde::Deserialize;
 // massa
 use massa_api_exports::node::NodeStatus;
-// massa re exports
-pub use massa_api_exports::execution::{ExecuteReadOnlyResponse, ReadOnlyCall, ReadOnlyResult};
 use massa_api_exports::operation::{OperationInfo, OperationInput};
 use massa_models::operation::SecureShareOperation;
+// massa re exports
+pub use massa_api_exports::execution::{ExecuteReadOnlyResponse, ReadOnlyCall, ReadOnlyResult};
 pub use massa_models::{
     address::Address,
     amount::Amount,
@@ -27,9 +27,11 @@ pub use massa_models::{
     slot::Slot,
 };
 pub use massa_signature::KeyPair;
+// internal
 use crate::deploy::DEPLOYER_BYTECODE;
 
 pub const BUILDNET_URL: &str = "https://buildnet.massa.net/api/v2";
+pub const BUILDNET_CHAINID: u64 = 77658366;
 
 pub async fn get_status(url: impl AsRef<str>) -> Result<NodeStatus, client::Error> {
     let client = HttpClientBuilder::default().build(url)?;
@@ -147,8 +149,8 @@ pub async fn send_operations(
         };
         */
 
-        const CHAINID_BUILDNET: u64 = 77658366;
-        Operation::new_verifiable(operation, OperationSerializer::new(), keypair, CHAINID_BUILDNET).unwrap()
+        // const CHAINID_BUILDNET: u64 = 77658366;
+        Operation::new_verifiable(operation, OperationSerializer::new(), keypair, BUILDNET_CHAINID).unwrap()
     };
 
     let input: OperationInput = OperationInput {
@@ -214,31 +216,41 @@ pub async fn deploy_smart_contract(
         ds
     };
 
-    println!("ds: {:#?}", ds
+    println!("ds: {:?}", ds
         .iter()
         .filter(|(k, v)| {
             **k != 1u64.to_le_bytes().to_vec() 
         }).collect::<Vec<_>>()
     );
+    println!("ds len: {:?}", ds.len());
 
     let op = OperationType::ExecuteSC {
         data: DEPLOYER_BYTECODE.to_vec(),
         max_gas: MAX_GAS_DEPLOYMENT,
-        max_coins: Amount::from_str("1297100000").unwrap(), // TODO
+        // max_coins: Amount::from_str("897450289").unwrap(), // TODO
+        max_coins: Amount::from_raw(897450289), // TODO
         datastore: ds,
     };
+
+    // println!("op: {}", op);
 
     // node_modules/@massalabs/massa-web3/dist/cmd/client/publicAPI.js
     // function fetchPeriod
     let status = get_status(url.clone()).await.unwrap();
     let last_slot = status.last_slot.unwrap();
+    println!("last_slot: {}", last_slot);
+    println!("period to live: {}", PERIOD_TO_LIVE_DEFAULT);
     let expire_period = last_slot.period + PERIOD_TO_LIVE_DEFAULT;
 
     let content = Operation {
-        fee: Amount::from_str("1000").unwrap(),
+        fee: Amount::from_str("0.01").unwrap(),
         op,
         expire_period,
     };
+
+    println!("content fee: {:?} - raw: {}", content.fee, content.fee.to_raw());
+    println!("content ex period: {:?}", content.expire_period);
+    // panic!();
 
     let op_id = send_operations(url.clone(), content, key_pair).await?;
     println!("operation ids: {:?}", op_id);
@@ -256,6 +268,13 @@ pub async fn deploy_smart_contract(
         // println!("status: {:?}", status);
         if let Ok(status) = status {
             if status.len() > 0 {
+
+                if status[0].op_exec_status.is_some() || status[0].is_operation_final == Some(true) {
+                    println!("exec done or is_final: {}", status[0]);
+                    break;
+                }
+
+                /*
                 // println!("operation status: {:?}", status);
                 if let Some(exec_info) = status[0].op_exec_status {
                     match exec_info {
@@ -267,13 +286,14 @@ pub async fn deploy_smart_contract(
                         false => panic!("failed op: {:?}", status),
                     }
                 }
+                */
             }
 
         }
         // println!("Waiting for status...");
         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
         c += 1;
-        if c >= 35 {
+        if c >= 30 {
             println!("Exiting timeout");
             break;
         }
@@ -290,9 +310,23 @@ pub async fn deploy_smart_contract(
         is_final: None,
         is_error: None,
     };
-    let events = get_events(url, event_filter).await;
+    let events = get_events(url, event_filter).await?;
 
-    println!("events: {:?}", events);
+    println!("events: {:#?}", events);
+    
+    const EVENT_CONSTRUCTOR_ADDRESS_PREFIX: &str = "Contract deployed at address: ";
+    let addr: Vec<Address> = events
+        .iter()
+        .filter_map(|event| {
+            if event.data.starts_with(EVENT_CONSTRUCTOR_ADDRESS_PREFIX) {
+                let addr_str = &event.data[EVENT_CONSTRUCTOR_ADDRESS_PREFIX.len()..];
+                Some(Address::from_str(addr_str).unwrap())
+            } else {
+                None
+            }
+        })
+        .collect();
 
-    unimplemented!()
+    // FIXME: no unwrap
+    Ok(addr.get(0).unwrap().clone())
 }
