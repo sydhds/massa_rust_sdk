@@ -1,0 +1,5 @@
+# [build]
+# target = "wasm32-unknown-unknown"
+
+[target.wasm32-unknown-unknown]
+runner = "target/debug/massa_sc_runner"

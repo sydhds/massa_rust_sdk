@@ -5,4 +5,7 @@ edition = "2024"
 
 [dependencies]
 jsonrpsee = { version = "0.24", features = ["full"] }
+serde = { version = "1.0.219", features = ["derive"] }
 massa_api_exports = { git = "https://github.com/massalabs/massa", package = "massa_api_exports" }
+massa_models = { git = "https://github.com/massalabs/massa", package = "massa_models" }
+massa_signature = { git = "https://github.com/massalabs/massa", package = "massa_signature" }

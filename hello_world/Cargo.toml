@@ -8,3 +8,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 massa_rust_sc = { path = "../massa_rust_sc" }
+
+# [target.wasm32-unknown-unknown]
+# runner = "target/debug/massa_sc_runner"
