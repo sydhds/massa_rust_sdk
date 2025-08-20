@@ -8,6 +8,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 massa_rust_sc = { path = "../massa_rust_sc" }
+utf16_lit = "2.0.2"
+bytemuck = { version = "1.23", features = ["must_cast"] }
 
 # [target.wasm32-unknown-unknown]
 # runner = "target/debug/massa_sc_runner"

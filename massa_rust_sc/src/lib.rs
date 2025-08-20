@@ -22,24 +22,7 @@ extern "C" {
     pub fn get_data(key: i32) -> i32;
 }
 
-pub fn print_msg() {
-    let mut buffer: [u8; 8] = [0; 8];
-    let msg_size = 4u32;
-    buffer[0..4].copy_from_slice(msg_size.to_le_bytes().as_slice());
-    // == "Ab" | "A__X__"
-    buffer[4] = 65;
-    buffer[5] = 0;
-    buffer[6] = 100;
-    buffer[7] = 0;
-
-    unsafe {
-        let buffer_ptr = buffer.as_mut_ptr().offset(4) as i32;
-        generateEvent(buffer_ptr);
-    }
-}
-
 #[no_mangle]
-// extern "C" fn __new(size_ptr: *mut u8, id_ptr: *mut u8) -> *mut u8 {
 extern "C" fn __new(size: usize, _id: i32) -> *mut u8 {
     // https://www.assemblyscript.org/runtime.html#interface
     // function __new(size: usize, id: u32): usize
