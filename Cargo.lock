@@ -2464,6 +2464,7 @@ dependencies = [
  "function_name",
  "massa-proto-rs",
  "massa-sc-runtime",
+ "wasmer",
 ]
 
 [[package]]

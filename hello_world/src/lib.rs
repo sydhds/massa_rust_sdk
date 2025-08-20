@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     #[no_mangle]
-    fn test_unit_xax() {
+    fn __MASSA_RUST_SDK_UNIT_TEST_hello_1() {
         // Storage set
 
         let mut key: [u8; 4 + 24] = [0; 4 + 24];

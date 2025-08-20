@@ -1,6 +1,6 @@
 # Massa rust sdk
 
-A rust sdk to develop smart contract for the [Massa blockchain](www.massa.net).
+A rust sdk to develop smart contract for the [Massa blockchain](https://www.massa.net).
 
 ## Architecture
 
@@ -24,6 +24,8 @@ A rust sdk to develop smart contract for the [Massa blockchain](www.massa.net).
 
 * cargo test --target=wasm32-unknown-unknown -p hello_world --no-run
 * cargo run -p massa_sc_runner -- target/wasm32-unknown-unknown/debug/deps/hello_world-XXXXX.wasm
+
+Note: Require Rust 1.88 until this bug is fixed: https://github.com/wasmerio/wasmer/issues/5610 and released
 
 ## Deploy
 

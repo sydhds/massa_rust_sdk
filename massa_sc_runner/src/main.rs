@@ -1,44 +1,82 @@
 mod interface;
 
+// std
 use std::path::PathBuf;
-use massa_sc_runtime::{run_function, Compiler, CondomLimits, GasCosts, Interface, RuntimeModule};
+// third-party
+use massa_sc_runtime::{Compiler, CondomLimits, GasCosts, Interface, RuntimeModule, run_function};
+// internal
 use interface::MassaScRunnerInterface;
 
+const UNIT_TEST_PREFIX: &str = "__MASSA_RUST_SDK_UNIT_TEST";
+
 fn main() {
-    
+    // TODO: debug!
     println!("args: {:?}", std::env::args());
     // println!("Should run with wasm now...");
     let wasm_file = std::env::args().nth(1).unwrap();
-    println!("Should run wasm file: {}", wasm_file);
+    println!("Wasm file: {}", wasm_file);
 
-    let function = "test_unit_xax";
     let limit = u64::MAX;
 
     // let gas_costs = GasCosts::default();
-    let gas_costs = GasCosts::new(PathBuf::from("massa_sc_runner/resources/abi_gas_costs.json"))
-        .expect("Failed to load gas costs");
+    let gas_costs = GasCosts::new(PathBuf::from(
+        "massa_sc_runner/resources/abi_gas_costs.json",
+    ))
+    .expect("Failed to load gas costs");
 
     let exec_limits = CondomLimits::default();
     let interface: Box<dyn Interface> = Box::new(MassaScRunnerInterface::default());
     // let module = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/wasm/basic_func.wasm"));
     let bytecode = std::fs::read(wasm_file).unwrap();
 
-    let runtime_module = RuntimeModule::new(
-        bytecode.as_slice(),
-        gas_costs.clone(),
-        Compiler::SP,
-        exec_limits.clone(),
-    ).unwrap();
+    // List wasm functions
+    // Note: cannot access Wasmer module (hidden in RuntimeModule struct from massa-sc-runtime)
+    //       so we need to do it manually
 
-    let res = run_function(
-        &*interface,
-        runtime_module,
-        function,
-        &[],
-        limit,
-        gas_costs,
-        exec_limits
-    );
-    
-    println!("res: {:?}", res);
+    let unit_test_functions = get_wasm_functions(bytecode.as_slice());
+
+    for f in unit_test_functions {
+
+        println!("Running unit test: {}", f);
+
+        let runtime_module = RuntimeModule::new(
+            bytecode.as_slice(),
+            gas_costs.clone(),
+            Compiler::SP,
+            exec_limits.clone(),
+        )
+            .unwrap();
+
+        let res = run_function(
+            &*interface,
+            runtime_module,
+            f.as_str(),
+            &[],
+            limit,
+            gas_costs.clone(),
+            exec_limits.clone(),
+        );
+
+        println!("wasm vm res: {:?}", res);
+    }
+}
+
+fn get_wasm_functions(wasm_content: &[u8]) -> Vec<String> {
+
+    use wasmer::{Engine, Module, Store, ExternType};
+
+    let engine = Engine::default();
+    let store = Store::new(engine);
+    let module = Module::new(&store, &wasm_content).unwrap();
+
+    module
+        .exports()
+        .filter_map(|export| {
+            if let ExternType::Function(f) = export.ty() && export.name().starts_with(UNIT_TEST_PREFIX) {
+                Some(export.name().to_string())
+            } else {
+                None
+            }
+        })
+        .collect()
 }
