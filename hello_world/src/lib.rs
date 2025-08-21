@@ -5,29 +5,25 @@ extern crate alloc;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 // internal
-use massa_rust_sc::{generateEvent, get_data, set_data};
+use massa_rust_sc::{generateEvent, string_to_as_array, to_as_array, get_data, set_data};
 // third-party
 use utf16_lit::utf16;
 
 // constants
-const EXAMPLE: &[u16] = &utf16!("massa rust sdk");
-const EXAMPLE_U8: &[u8] = bytemuck::must_cast_slice(EXAMPLE);
 
-const KEY: &[u16] = &utf16!("greeting_key");
-const KEY_U8: &[u8] = bytemuck::must_cast_slice(KEY);
-const VALUE: &[u16] = &utf16!("hello");
-const VALUE_U8: &[u8] = bytemuck::must_cast_slice(VALUE);
+const EXAMPLE: &[u8] = string_to_as_array!("massa_rust_sdk");
+const KEY: &[u8] = string_to_as_array!("greeting_key");
+const VALUE: &[u8] = string_to_as_array!("hello");
+
 // end constants
 
 #[no_mangle]
 extern "C" fn constructor() {
+
     // Use generateEvent
     // Note: generateEvent requires an UTF16 encoded string as input
     unsafe {
-        let mut msg: [u8; 4 + EXAMPLE_U8.len()] = [0; 4 + EXAMPLE_U8.len()];
-        msg[0..4].copy_from_slice(EXAMPLE_U8.len().to_le_bytes().as_slice());
-        msg[4..].copy_from_slice(EXAMPLE_U8);
-        let ptr = msg.as_ptr().offset(4);
+        let ptr = EXAMPLE.as_ptr().offset(4);
         generateEvent(ptr as i32);
     }
 
@@ -47,21 +43,10 @@ extern "C" fn constructor() {
 
     // Storage set
     {
-        // Define storage key
-        // TODO: define const func?
-        let mut key: [u8; 4 + KEY_U8.len()] = [0; 4 + KEY_U8.len()];
-        key[0..4].copy_from_slice(KEY_U8.len().to_le_bytes().as_slice());
-        key[4..].copy_from_slice(KEY_U8);
-
-        // Define storage value
-        let mut value: [u8; 4 + VALUE_U8.len()] = [0; 4 + VALUE_U8.len()];
-        value[0..4].copy_from_slice(VALUE_U8.len().to_le_bytes().as_slice());
-        value[4..].copy_from_slice(VALUE_U8);
-
-        // Set our value in storage
+        // Set our value in smart contract storage
         unsafe {
-            let key_ptr = key.as_mut_ptr().offset(4) as i32;
-            let value_ptr = value.as_mut_ptr().offset(4) as i32;
+            let key_ptr = KEY.as_ptr().offset(4) as i32;
+            let value_ptr = VALUE.as_ptr().offset(4) as i32;
             // generateEvent(value_ptr);
             set_data(key_ptr, value_ptr);
         }
@@ -70,14 +55,11 @@ extern "C" fn constructor() {
 
 #[no_mangle]
 extern "C" fn hello() -> *mut u8 {
-    // Define storage key
-    // TODO: define const func?
-    let mut key: [u8; 4 + KEY_U8.len()] = [0; 4 + KEY_U8.len()];
-    key[0..4].copy_from_slice(KEY_U8.len().to_le_bytes().as_slice());
-    key[4..].copy_from_slice(KEY_U8);
 
+
+    #[allow(clippy::let_and_return)]
     let value_ptr = unsafe {
-        let key_ptr = key.as_mut_ptr().offset(4); // as i32;
+        let key_ptr = KEY.as_ptr().offset(4); // as i32;
         let value_ptr = get_data(key_ptr as i32);
         value_ptr as *mut u8
     };
@@ -100,33 +82,19 @@ mod tests {
     #[test]
     #[no_mangle]
     fn __MASSA_RUST_SDK_UNIT_TEST_hello_1() {
-        // Storage set
 
-        let mut key: [u8; 4 + 24] = [0; 4 + 24];
-        let key_size = 24u32;
-        key[0..4].copy_from_slice(key_size.to_le_bytes().as_slice());
-        // == "greeting_key"
-        let key_str = [
-            103u8, 0, 114, 0, 101, 0, 101, 0, 116, 0, 105, 0, 110, 0, 103, 0, 95, 0, 107, 0, 101,
-            0, 121, 0,
-        ];
-        key[4..].copy_from_slice(&key_str);
-
-        // == "hellw"
-        let mut value: [u8; 4 + 10] = [0; 4 + 10];
-        let value_size = 10u32;
-        value[0..4].copy_from_slice(value_size.to_le_bytes().as_slice());
-        let value_str = [104, 0, 101, 0, 108, 0, 108, 0, 119, 0];
-        value[4..].copy_from_slice(&value_str);
+        // Storage set (before calling hello())
+        const T_KEY: &[u8] = string_to_as_array!("greeting_key");
+        const T_VALUE: &[u8] = string_to_as_array!("hellw");
 
         unsafe {
-            let key_ptr = key.as_mut_ptr().offset(4) as i32;
-            let value_ptr = value.as_mut_ptr().offset(4) as i32;
+            let key_ptr = T_KEY.as_ptr().offset(4) as i32;
+            let value_ptr = T_VALUE.as_ptr().offset(4) as i32;
             generateEvent(value_ptr);
             set_data(key_ptr, value_ptr);
         }
 
-        // End Storage set
+        // Now call hello()
 
         let res_ptr = hello();
 
@@ -144,7 +112,8 @@ mod tests {
                 .unwrap()
         };
 
-        let expected = [104, 0, 101, 0, 108, 0, 108, 0, 119, 0];
+        // let expected = [104, 0, 101, 0, 108, 0, 108, 0, 119, 0];
+        let expected = bytemuck::must_cast_slice(&utf16!("hellw"));
         assert_eq!(res_msg, expected);
     }
 }

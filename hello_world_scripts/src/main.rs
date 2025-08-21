@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use dotenv::dotenv;
 // third-party
@@ -87,10 +87,13 @@ async fn main() {
     let pkey = std::env::var("PRIVATE_KEY").unwrap();
     let keypair = KeyPair::from_str(pkey.as_str()).unwrap();
 
+    let wasm_path = PathBuf::from("target/wasm32-unknown-unknown/release/main.wasm");
+    println!("Deploying: {:?}", wasm_path);
+
     let sc_address = deploy_smart_contract(
         BUILDNET_URL,
         &keypair,
-        Path::new("target/wasm32-unknown-unknown/release/main.wasm")
+        wasm_path.as_path(),
     ).await;
     
     println!("SC address: {:?}", sc_address);

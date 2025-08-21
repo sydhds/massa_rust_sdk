@@ -2443,7 +2443,9 @@ dependencies = [
 name = "massa_rust_sc"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "lol_alloc",
+ "utf16_lit",
 ]
 
 [[package]]

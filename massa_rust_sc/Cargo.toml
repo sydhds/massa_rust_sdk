@@ -5,3 +5,5 @@ edition = "2021"
 
 [dependencies]
 lol_alloc = "0.4"
+utf16_lit = "2.0.2"
+bytemuck = { version = "1.23", features = ["must_cast"] }

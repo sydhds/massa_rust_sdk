@@ -14,7 +14,7 @@ fn main() {
     println!("args: {:?}", std::env::args());
     // println!("Should run with wasm now...");
     let wasm_file = std::env::args().nth(1).unwrap();
-    println!("Wasm file: {}", wasm_file);
+    println!("Wasm file: {wasm_file}");
 
     let limit = u64::MAX;
 
@@ -24,8 +24,6 @@ fn main() {
     ))
     .expect("Failed to load gas costs");
 
-    let exec_limits = CondomLimits::default();
-    let interface: Box<dyn Interface> = Box::new(MassaScRunnerInterface::default());
     // let module = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/wasm/basic_func.wasm"));
     let bytecode = std::fs::read(wasm_file).unwrap();
 
@@ -37,7 +35,10 @@ fn main() {
 
     for f in unit_test_functions {
 
-        println!("Running unit test: {}", f);
+        println!("Running unit test: {f}");
+
+        let exec_limits = CondomLimits::default();
+        let interface: Box<dyn Interface> = Box::new(MassaScRunnerInterface::default());
 
         let runtime_module = RuntimeModule::new(
             bytecode.as_slice(),
@@ -57,7 +58,7 @@ fn main() {
             exec_limits.clone(),
         );
 
-        println!("wasm vm res: {:?}", res);
+        println!("wasm vm res: {res:?}");
     }
 }
 
@@ -67,12 +68,12 @@ fn get_wasm_functions(wasm_content: &[u8]) -> Vec<String> {
 
     let engine = Engine::default();
     let store = Store::new(engine);
-    let module = Module::new(&store, &wasm_content).unwrap();
+    let module = Module::new(&store, wasm_content).unwrap();
 
     module
         .exports()
         .filter_map(|export| {
-            if let ExternType::Function(f) = export.ty() && export.name().starts_with(UNIT_TEST_PREFIX) {
+            if let ExternType::Function(_f) = export.ty() && export.name().starts_with(UNIT_TEST_PREFIX) {
                 Some(export.name().to_string())
             } else {
                 None

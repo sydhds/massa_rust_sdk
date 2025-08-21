@@ -10,7 +10,7 @@ use massa_sc_runtime::{Interface, InterfaceClone, RuntimeModule};
 #[derive(Clone, Default)]
 pub struct MassaScRunnerInterface {
     sc_storage: Arc<RwLock<BTreeMap<Vec<u8>, Vec<u8>>>>,
-    other_sc_storage: Arc<RwLock<BTreeMap<Vec<u8>, Vec<u8>>>>,
+    // other_sc_storage: Arc<RwLock<BTreeMap<Vec<u8>, Vec<u8>>>>,
 }
 
 impl InterfaceClone for MassaScRunnerInterface {
@@ -114,8 +114,9 @@ impl Interface for MassaScRunnerInterface {
 
         println!("[{}] key: {:?}", function_name!(), key);
         let guard = self.sc_storage.read().unwrap();
-        // FIXME: no unwrap
-        let data = guard.get(key).cloned().unwrap(); 
+        // Note: Massa get_data bail!("data entry not found") if key not found
+        let data = guard.get(key).cloned().unwrap();
+        println!("[{}] data: {:?}", function_name!(), data);
         Ok(data)    
     }
 

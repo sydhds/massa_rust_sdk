@@ -31,14 +31,33 @@ extern "C" fn __new(size: usize, _id: i32) -> *mut u8 {
 
     const HEADER_SIZE: usize = 20;
     let mut v = vec![0; HEADER_SIZE + size];
-    // let mut v = vec![0; header_size + size];
     v[12..16].copy_from_slice(&[1, 0, 0, 0]);
-    // v[12..16].copy_from_slice(&id_bytes);
-    // v[16..header_size].copy_from_slice(&[32, 0, 0, 0]);
     v[16..HEADER_SIZE].copy_from_slice(&size.to_le_bytes());
 
-    unsafe { v.leak().as_mut_ptr().offset(HEADER_SIZE as isize) }
+    unsafe {
+        v.leak().as_mut_ptr().add(HEADER_SIZE)
+    }
 }
+
+pub const fn to_as_array<const N: usize>(v: &[u8]) -> [u8; N] {
+    let mut dst: [u8; N] = [0u8; N];
+    let (a1, a2) = dst.split_at_mut(4);
+    a1.copy_from_slice((v.len() as u32).to_le_bytes().as_slice());
+    a2.copy_from_slice(v);
+    dst
+}
+
+#[macro_export]
+macro_rules! string_to_as_array {
+    ($key:expr) => {{
+        const K__: &[u16] = &utf16!($key);
+        const K_U8__: &[u8] = bytemuck::must_cast_slice(K__);
+        const N__: usize = K_U8__.len();
+        to_as_array::<{N__ + 4}>(K_U8__).as_slice()
+    }};
+}
+
+
 
 /*
 #[panic_handler]
