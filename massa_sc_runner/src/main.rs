@@ -73,8 +73,8 @@ fn get_wasm_functions(wasm_content: &[u8]) -> Vec<String> {
     module
         .exports()
         .filter_map(|export| {
-            if let ExternType::Function(_f) = export.ty() && export.name().starts_with(UNIT_TEST_PREFIX) {
-                Some(export.name().to_string())
+            if let ExternType::Function(f) = export.ty() && export.name().starts_with(UNIT_TEST_PREFIX) {
+                Some(f.name().to_string())
             } else {
                 None
             }

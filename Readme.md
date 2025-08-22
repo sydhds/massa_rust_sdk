@@ -2,6 +2,9 @@
 
 A rust sdk to develop smart contract for the [Massa blockchain](https://www.massa.net).
 
+This sdk is still in development and very WIP, so expect breaking changes. You have been warned!
+Rust developers are welcome to contribute. Please have a look at the issues and the roadmap.
+
 ## Architecture
 
 * massa_rust_sc: Helpers for Rust-written smart contract
@@ -25,9 +28,9 @@ A rust sdk to develop smart contract for the [Massa blockchain](https://www.mass
 * cargo test --target=wasm32-unknown-unknown -p hello_world --no-run
 * cargo run -p massa_sc_runner -- target/wasm32-unknown-unknown/debug/deps/hello_world-XXXXX.wasm
 
-Note: Require Rust 1.88 until this bug is fixed: https://github.com/wasmerio/wasmer/issues/5610 and released
+Note: Require Rust 1.88 until this bug is fixed: https://github.com/wasmerio/wasmer/issues/5610 and released.
 
-## Deploy
+### Deploy
 
 * cp -v .env.example .env
 * \_\_EDIT\_\_ .env (with wallet info)
@@ -36,3 +39,26 @@ Note: Require Rust 1.88 until this bug is fixed: https://github.com/wasmerio/was
 ### Other scripts
 
 * cargo run -p hello_world_scripts --example get_operations -- \_\_OPERATION_ID_STRING\_\_ get_op.log
+
+## Developing Massa smart contracts in Rust
+
+Writing a handbook is planned, but in the meantime, you can refer to the following documentation:
+
+### Cargo doc
+
+* cargo doc -p massa_rust_sc --target wasm32-unknown-unknown
+
+## JsonRPC & Grpc call in Rust
+
+* cargo doc -p massa_rust_web3
+
+### Smart contract examples 
+
+* [hello_world](hello_world): use events & blockchain storage 
+
+### JsonRPC examples
+
+* [hello_world_scripts](hello_world_scripts): 
+  * deploy hello_world SC & call hello() functions
+  * example get_status: call JsonRPC get_status function
+  * example get_operations: call JsonRPC get_operations function
