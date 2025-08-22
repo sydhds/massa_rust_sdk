@@ -42,23 +42,24 @@ Note: Require Rust 1.88 until this bug is fixed: https://github.com/wasmerio/was
 
 ## Developing Massa smart contracts in Rust
 
-Writing a handbook is planned, but in the meantime, you can refer to the following documentation:
+Writing a handbook is planned, but in the meantime, you can refer to the following documentation & examples:
 
-### Cargo doc
+### Documentation (Smart contract development)
 
 * cargo doc -p massa_rust_sc --target wasm32-unknown-unknown
 
-## JsonRPC & Grpc call in Rust
+### JsonRPC & Grpc call documentation
 
 * cargo doc -p massa_rust_web3
 
 ### Smart contract examples 
 
-* [hello_world](hello_world): use events & blockchain storage 
+* [hello_world](hello_world): use events && blockchain storage 
 
 ### JsonRPC examples
 
 * [hello_world_scripts](hello_world_scripts): 
-  * deploy hello_world SC & call hello() functions
-  * example get_status: call JsonRPC get_status function
-  * example get_operations: call JsonRPC get_operations function
+  * deploy hello_world SC
+  * example - read_only_call: call hello() function from hello_world SC
+  * example - get_status: call JsonRPC get_status function
+  * example - get_operations: call JsonRPC get_operations function
