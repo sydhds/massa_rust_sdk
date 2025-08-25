@@ -7,6 +7,14 @@ static ALLOCATOR: LeakingPageAllocator = LeakingPageAllocator;
 extern crate alloc;
 use alloc::vec;
 
+mod owner;
+mod as_string;
+mod context;
+pub use crate::as_string::{
+    to_as_array,
+};
+// pub use crate::context::is_deploying_contract;
+
 #[link(wasm_import_module = "massa")]
 extern "C" {
 
@@ -20,6 +28,12 @@ extern "C" {
 
     #[link_name = "assembly_script_get_data"]
     pub fn get_data(key: i32) -> i32;
+
+    #[link_name = "assembly_script_caller_has_write_access"]
+    pub fn caller_has_write_access() -> bool;
+
+    #[link_name = "assembly_script_get_call_stack"]
+    pub fn get_call_stack() -> i32;
 }
 
 #[no_mangle]
@@ -39,25 +53,13 @@ extern "C" fn __new(size: usize, _id: i32) -> *mut u8 {
     }
 }
 
-pub const fn to_as_array<const N: usize>(v: &[u8]) -> [u8; N] {
-    let mut dst: [u8; N] = [0u8; N];
-    let (a1, a2) = dst.split_at_mut(4);
-    a1.copy_from_slice((v.len() as u32).to_le_bytes().as_slice());
-    a2.copy_from_slice(v);
-    dst
+#[no_mangle]
+extern "C" fn __pin(ptr: usize) -> usize {
+    // https://www.assemblyscript.org/runtime.html#interface
+    // function __pin(ptr: usize): usize
+    // https://github.com/AssemblyScript/assemblyscript/blob/main/std/assembly/rt/itcms.ts#L334
+    ptr
 }
-
-#[macro_export]
-macro_rules! string_to_as_array {
-    ($key:expr) => {{
-        const K__: &[u16] = &utf16!($key);
-        const K_U8__: &[u8] = bytemuck::must_cast_slice(K__);
-        const N__: usize = K_U8__.len();
-        to_as_array::<{N__ + 4}>(K_U8__).as_slice()
-    }};
-}
-
-
 
 /*
 #[panic_handler]

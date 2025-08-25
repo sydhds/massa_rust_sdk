@@ -5,7 +5,13 @@ extern crate alloc;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 // internal
-use massa_rust_sc::{generateEvent, string_to_as_array, to_as_array, get_data, set_data};
+use massa_rust_sc::{
+    generateEvent,
+    string_to_as_array, to_as_array,
+    get_data, set_data,
+    // is_deploying_contract,
+    get_call_stack
+};
 // third-party
 use utf16_lit::utf16;
 
@@ -19,6 +25,14 @@ const VALUE: &[u8] = string_to_as_array!("hello");
 
 #[no_mangle]
 extern "C" fn constructor() {
+
+    // FIXME
+    // assert!(is_deploying_contract());
+    unsafe {
+        let ptr = get_call_stack();
+        generateEvent(ptr);
+    }
+    // END FIXME
 
     // Use generateEvent
     // Note: generateEvent requires an UTF16 encoded string as input
@@ -55,7 +69,6 @@ extern "C" fn constructor() {
 
 #[no_mangle]
 extern "C" fn hello() -> *mut u8 {
-
 
     #[allow(clippy::let_and_return)]
     let value_ptr = unsafe {
