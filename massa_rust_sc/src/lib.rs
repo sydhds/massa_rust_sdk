@@ -3,7 +3,7 @@
 // Massa blockchain only accept Wasm without the reference-types and multivalue features
 // According to this blog post: https://blog.rust-lang.org/2024/09/24/webassembly-targets-change-in-default-target-features/
 // this is the default for Rust 1.82+
-// So need to compile using Rust nightly (see blog post)
+// So need to compile using Rust nightly (see blog rust-lang post)
 // See also:
 // https://github.com/rust-lang/rust/issues/128475
 // https://github.com/rust-lang/rust/pull/128511
@@ -11,6 +11,8 @@
 mod as_slice;
 mod as_vec;
 mod memory;
+mod owner;
+mod context;
 
 use lol_alloc::LeakingPageAllocator;
 #[global_allocator]
@@ -57,6 +59,12 @@ extern "C" {
     /// Return: a boolean value
     #[link_name = "assembly_script_has_data"]
     pub fn assembly_script_has_data(key: i32) -> bool;
+
+    #[link_name = "assembly_script_caller_has_write_access"]
+    pub fn assembly_script_caller_has_write_access() -> bool;
+
+    #[link_name = "assembly_script_get_call_stack"]
+    pub fn assembly_script_get_call_stack() -> i32;
 }
 
 #[no_mangle]
@@ -74,25 +82,13 @@ extern "C" fn __new(size: usize, _id: i32) -> *mut u8 {
     unsafe { v.leak().as_mut_ptr().add(HEADER_SIZE) }
 }
 
-/*
-pub const fn to_as_array<const N: usize>(v: &[u8]) -> [u8; N] {
-    let mut dst: [u8; N] = [0u8; N];
-    let (a1, a2) = dst.split_at_mut(4);
-    a1.copy_from_slice((v.len() as u32).to_le_bytes().as_slice());
-    a2.copy_from_slice(v);
-    dst
+#[no_mangle]
+extern "C" fn __pin(ptr: usize) -> usize {
+    // https://www.assemblyscript.org/runtime.html#interface
+    // function __pin(ptr: usize): usize
+    // https://github.com/AssemblyScript/assemblyscript/blob/main/std/assembly/rt/itcms.ts#L334
+    ptr
 }
-
-#[macro_export]
-macro_rules! string_to_as_array {
-    ($key:expr) => {{
-        const K__: &[u16] = &utf16!($key);
-        const K_U8__: &[u8] = bytemuck::must_cast_slice(K__);
-        const N__: usize = K_U8__.len();
-        to_as_array::<{N__ + 4}>(K_U8__).as_slice()
-    }};
-}
-*/
 
 /*
 #[panic_handler]
@@ -120,4 +116,8 @@ pub fn get_data<T: AsMemoryModel>(key: T) -> i32 {
 
 pub fn has_data<T: AsMemoryModel>(key: T) -> bool {
     unsafe { assembly_script_has_data(key.as_ptr_data()) }
+}
+
+pub fn caller_has_write_access() -> bool {
+    unsafe { assembly_script_caller_has_write_access() }
 }
