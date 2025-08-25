@@ -20,6 +20,9 @@ extern "C" {
 
     #[link_name = "assembly_script_get_data"]
     pub fn get_data(key: i32) -> i32;
+
+    #[link_name = "assembly_script_has_data"]
+    pub fn has_data(key: i32) -> bool;
 }
 
 #[no_mangle]

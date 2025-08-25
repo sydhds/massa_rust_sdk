@@ -25,10 +25,17 @@ Rust developers are welcome to contribute. Please have a look at the issues and 
 
 ### Unit tests
 
+* cargo build -p massa_sc_runner
+* cargo test --target=wasm32-unknown-unknown -p hello_world
+
+Or manually:
+
 * cargo test --target=wasm32-unknown-unknown -p hello_world --no-run
 * cargo run -p massa_sc_runner -- target/wasm32-unknown-unknown/debug/deps/hello_world-XXXXX.wasm
 
-Note: Require Rust 1.88 until this bug is fixed: https://github.com/wasmerio/wasmer/issues/5610 and released.
+Note: 
+* Require Rust 1.88 until this bug is fixed: https://github.com/wasmerio/wasmer/issues/5610 and released.
+* Debug build of massa_sc_runner is used to run the tests. See [config.toml](.cargo/config.toml) for more details.
 
 ### Deploy
 

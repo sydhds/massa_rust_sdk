@@ -172,7 +172,7 @@ impl Interface for MassaScRunnerInterface {
     }
 
     fn has_data(&self, key: &[u8]) -> massa_sc_runtime::Result<bool> {
-        todo!()
+        Ok(self.sc_storage.read().unwrap().contains_key(key))
     }
 
     fn has_data_for(&self, address: &str, key: &[u8]) -> massa_sc_runtime::Result<bool> {

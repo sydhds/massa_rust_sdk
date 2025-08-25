@@ -5,7 +5,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 // internal
-use massa_rust_sc::{generateEvent, string_to_as_array, to_as_array, get_data, set_data};
+use massa_rust_sc::{generateEvent, string_to_as_array, to_as_array, get_data, set_data, has_data};
 // third-party
 use utf16_lit::utf16;
 
@@ -49,6 +49,7 @@ extern "C" fn constructor() {
             let value_ptr = VALUE.as_ptr().offset(4) as i32;
             // generateEvent(value_ptr);
             set_data(key_ptr, value_ptr);
+            // assert!(has_data(key_ptr));
         }
     }
 }
@@ -78,6 +79,7 @@ mod tests {
     use super::*;
     use core::ptr::slice_from_raw_parts;
     use core::slice;
+    use massa_rust_sc::has_data;
 
     #[test]
     #[no_mangle]
@@ -92,6 +94,7 @@ mod tests {
             let value_ptr = T_VALUE.as_ptr().offset(4) as i32;
             generateEvent(value_ptr);
             set_data(key_ptr, value_ptr);
+            assert!(has_data(key_ptr));
         }
 
         // Now call hello()

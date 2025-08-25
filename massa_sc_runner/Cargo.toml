@@ -10,5 +10,6 @@ massa-proto-rs = { git = "https://github.com/massalabs/massa-proto-rs.git", "rev
 massa-sc-runtime = { path = "../../massa-sc-runtime" }
 function_name = "0.3"
 wasmer = { version = "=4.3.6", features = ["static-artifact-create"] }
+tempfile = "3.21"
 # wasmer-compiler-cranelift = "=4.3.6"
 # wasmer-compiler-singlepass = "=4.3.6"

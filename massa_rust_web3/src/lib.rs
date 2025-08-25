@@ -330,3 +330,17 @@ pub async fn deploy_smart_contract(
     // FIXME: no unwrap
     Ok(addr.get(0).unwrap().clone())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_get_status() {
+
+        let node_status = get_status(BUILDNET_URL).await.unwrap();
+        println!("{}", "#".repeat(20));
+        println!("Node status: {}", node_status);
+        assert_eq!(node_status.chain_id, BUILDNET_CHAINID);
+    }
+}
