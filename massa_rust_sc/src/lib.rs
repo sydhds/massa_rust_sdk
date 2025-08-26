@@ -12,15 +12,32 @@ extern "C" {
 
     // External function signatures
 
+    /// Generate an event in the blockchain
+    ///
+    /// * event: a pointer to an utf-16 string (prefixed with array size, see [string_to_as_array!](string_to_as_array!))
     #[link_name = "assembly_script_generate_event"]
     pub fn generateEvent(event: i32) -> ();
 
+    /// Store a value in smart contract storage
+    ///
+    /// * key: a pointer to a byte slice (prefixed with array size)
+    /// * value: a pointer to a byte slice (prefixed with array size)
     #[link_name = "assembly_script_set_data"]
     pub fn set_data(key: i32, value: i32) -> ();
 
+    /// Get a value stored in smart contract storage
+    ///
+    /// * key: a pointer to a byte slice (prefixed with array size)
+    ///
+    /// Return: a pointer to a byte slice (prefixed with array size)
     #[link_name = "assembly_script_get_data"]
     pub fn get_data(key: i32) -> i32;
 
+    /// Check if a value is stored in smart contract storage
+    ///
+    /// * key: a pointer to a byte slice (prefixed with array size)
+    ///
+    /// Return: a boolean value
     #[link_name = "assembly_script_has_data"]
     pub fn has_data(key: i32) -> bool;
 }
