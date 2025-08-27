@@ -206,73 +206,130 @@ pub enum DeployError {
     Client(#[from] client::Error),
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct DeployerArgs {
+    /// Arguments for the deployed smart contract constructor function
+    /// Default to no arguments
+    pub constructor_arguments: Option<Vec<u8>>, // TODO: Args
+    /// Coins (used to pay for storage when the deployed smart contract constructor is called)
+    /// Default to 0
+    pub coins: Option<u64>,
+    /// Fee for the deploy transaction (If None, use the minimal fee fetch from the rpc)
+    pub fee: Option<Amount>,
+}
+
 pub async fn deploy_smart_contract(
     url: impl AsRef<str> + Clone,
     key_pair: &KeyPair,
     smart_contract: &Path,
+    args: DeployerArgs,
 ) -> Result<Address, DeployError> {
 
     // Read the smart contract we want to deploy
     let mut file_content = Vec::new();
     let mut fs = tokio::fs::File::open(smart_contract).await?;
     fs.read_to_end(&mut file_content).await?;
+    let file_content_len = file_content.len();
 
     //
     // TODO: function populateDatastore
     //       node_modules/@massalabs/massa-web3/dist/cmd/smartContracts/deployerUtils.js
 
+    // /home/sydh/dev/perso/massa_rust_sdk/massa-hello-world/node_modules/@massalabs/massa-web3/dist/cmd/provider/jsonRpcProvider/jsonRpcProvider.js
+
     // Datastore for ExecuteSC operation
     // require the following keys:
     // * CONTRACTS_NUMBER_KEY: the number of contracts we want to deploy
     // And for each contract, we want to deploy:
-    // * contractKey: the contract bytecode we want to deploy
-    // * argsKey: the arguments for the constructor ??
-    // * coinsKey: the coins we want to pay for the deployment ??
+    // * contract_key: the contract bytecode we want to deploy
+    // * args_key: the arguments for the constructor ??
+    // * coins_key: the coins we want to pay for the deployment ??
     let ds = {
-        const CONTRACTS_NUMBER_KEY: [u8; 1] = [0u8];
         let mut ds = Datastore::default();
 
+        // Defined as: ```const CONTRACTS_NUMBER_KEY = new Uint8Array([0]);```
+        const CONTRACTS_NUMBER_KEY: [u8; 1] = [0u8];
         ds.insert(CONTRACTS_NUMBER_KEY.to_vec(), 1u64.to_le_bytes().to_vec());
-        // TODO: deploy 1+ SC
-        // massa-web3 function 'contractKey'
-        ds.insert(1u64.to_le_bytes().to_vec(), file_content);
+
+        // massa-web3 function 'contractKey' (in node_modules/@massalabs/massa-web3/dist/cmd/smartContracts/deployerUtils.js)
+        // 1u64 -> SC index that we want to deploy (starting at 1)
+        let contract_key = 1u64.to_le_bytes().to_vec();
+        ds.insert(contract_key, file_content);
+
         // massa-web3 function 'argsKey'
-        // TODO: Args
-        let mut argsKey = 1u64.to_le_bytes().to_vec();
-        // FIXME
-        argsKey.extend_from_slice(&[1, 0, 0, 0, 0]);
+        // 1u64 -> SC index that we want to deploy (starting at 1)
+        // + a Uint8Array of length 1: [0] (so [1, 0, 0, 0] for the size + [0] for the value
+        let mut args_key = 1u64.to_le_bytes().to_vec();
+        args_key.extend_from_slice(&[1, 0, 0, 0, 0]);
+        // Arguments expected by the deployed smart contract constructor function
         // XXX: Args encoded 'Massa'
+        /*
         ds.insert(argsKey, [
             5,   0,   0,  0, 77,
             97, 115, 115, 97
         ].to_vec());
+        */
+        ds.insert(args_key, args.constructor_arguments.unwrap_or_default());
+
         // massa-web3 function 'coinsKey'
-        let mut coinsKey = 1u64.to_le_bytes().to_vec();
-        // FIXME
-        coinsKey.extend_from_slice(&[1, 0, 0, 0, 1]);
-        // FIXME:
-        ds.insert(coinsKey, [
+        // 1u64 -> SC index that we want to deploy (starting at 1)
+        // + a Uint8Array of length 1: [1] (so [1, 0, 0, 0] for the size + [1] for the value
+        let mut coins_key = 1u64.to_le_bytes().to_vec();
+        coins_key.extend_from_slice(&[1, 0, 0, 0, 1]);
+        // Coins as u64 (serialized as LE bytes)
+        /*
+        ds.insert(coins_key, [
             128, 150, 152, 0,
             0,   0,   0, 0
         ].to_vec());
+        */
+        // let coins_value = 10000000u64.to_le_bytes().to_vec();
+        let coins_value = args.coins.unwrap_or(0u64).to_le_bytes().to_vec();
+        ds.insert(coins_key, coins_value);
 
         ds
     };
 
-    println!("ds: {:?}", ds
-        .iter()
-        .filter(|(k, _v)| {
-            **k != 1u64.to_le_bytes().to_vec() 
-        }).collect::<Vec<_>>()
-    );
-    println!("ds len: {:?}", ds.len());
+    // println!("ds: {:?}", ds
+    //     .iter()
+    //     .filter(|(k, _v)| {
+    //         **k != 1u64.to_le_bytes().to_vec()
+    //     }).collect::<Vec<_>>()
+    // );
+    // println!("ds len: {:?}", ds.len());
+
+    // max_coins
+    // == Max amount of coins allowed to be spent by the execution
+    let max_coins: Amount = {
+        // node_modules/@massalabs/massa-web3/dist/cmd/basicElements/storage.js
+        const ACCOUNT_SIZE_BYTES: u64 = 10;
+
+        // == Amount::from_str("0.0001").unwrap();
+        const STORAGE_BYTE_COST: Amount = Amount::from_raw(100000);
+
+
+        let account_cost = STORAGE_BYTE_COST
+            .checked_mul_u64(ACCOUNT_SIZE_BYTES)
+            .unwrap();
+
+        STORAGE_BYTE_COST
+            .checked_mul_u64(file_content_len as u64)
+            .unwrap()
+            .checked_add(account_cost)
+            .unwrap()
+            .checked_add(Amount::from_raw(args.coins.unwrap_or(0u64)))
+            .unwrap()
+    };
+    println!("max coins: {:?}", max_coins);
+    println!("max coins: {:?}", max_coins.to_raw());
+    //
 
     // Execute Deployer SC that will deploy our smart contract
+    // https://docs.massa.net/docs/learn/operation-format-execution#executesc-operation-payload
     let op = OperationType::ExecuteSC {
         data: DEPLOYER_BYTECODE.to_vec(),
-        max_gas: MAX_GAS_DEPLOYMENT,
-        // max_coins: Amount::from_str("897450289").unwrap(), // TODO
-        max_coins: Amount::from_raw(897450289), // TODO
+        max_gas: MAX_GAS_DEPLOYMENT, // TODO: gas estimation
+        max_coins,
         datastore: ds,
     };
 
@@ -281,14 +338,23 @@ pub async fn deploy_smart_contract(
     // node_modules/@massalabs/massa-web3/dist/cmd/client/publicAPI.js
     // function fetchPeriod
     let status = get_status(url.clone()).await?;
-    // FIXME
-    let last_slot = status.last_slot.unwrap();
+    // Note: get_status should always return a valid last_slot
+    let last_slot = status.last_slot.expect("get_status last_slot is None");
     println!("last_slot: {}", last_slot);
     println!("period to live: {}", PERIOD_TO_LIVE_DEFAULT);
     let expire_period = last_slot.period + PERIOD_TO_LIVE_DEFAULT;
 
+    let minimal_fee = status.minimal_fees;
+    if let Some(fee) = args.fee {
+        if fee < minimal_fee {
+            // TODO: warn!
+            println!("Fee is too low: {} (minimal fee: {})", fee, minimal_fee);
+        }
+    }
+
     let content = Operation {
-        fee: Amount::from_str("0.01").unwrap(), // FIXME
+        // fee: Amount::from_str("0.01").unwrap(), // FIXME
+        fee: args.fee.unwrap_or(minimal_fee),
         op,
         expire_period,
     };
