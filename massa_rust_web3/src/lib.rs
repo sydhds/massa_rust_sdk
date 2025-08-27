@@ -1,7 +1,6 @@
 mod deploy;
 
 use std::collections::VecDeque;
-use std::ops::Deref;
 use std::path::Path;
 use std::str::FromStr;
 // third-party
@@ -27,11 +26,28 @@ pub use massa_models::{
     slot::Slot,
 };
 pub use massa_signature::KeyPair;
+use reqwest::Url;
 // internal
 use crate::deploy::DEPLOYER_BYTECODE;
 
 pub const BUILDNET_URL: &str = "https://buildnet.massa.net/api/v2";
 pub const BUILDNET_CHAINID: u64 = 77658366;
+
+/*
+trait MassaJsonRpc {
+
+    type Error;
+
+    async fn post<P, R, E: std::error::Error>(&self, url: impl AsRef<str>, params: P) -> Result<R, E>;
+
+    fn empty_params<P>() -> P;
+
+    async fn get_status<P, E: std::error::Error>(&self, url: impl AsRef<str>) -> Result<NodeStatus, E> {
+        // let params = Self::empty_params();
+        self.post(url, Self::empty_params()).await
+    }
+}
+*/
 
 pub async fn get_status(url: impl AsRef<str>) -> Result<NodeStatus, client::Error> {
     let client = HttpClientBuilder::default().build(url)?;
@@ -39,12 +55,40 @@ pub async fn get_status(url: impl AsRef<str>) -> Result<NodeStatus, client::Erro
     client.request("get_status", params).await
 }
 
+/*
+pub async fn get_status_reqwest(url: impl AsRef<str>) -> Result<NodeStatus, client::Error> {
+    // let client = HttpClientBuilder::default().build(url)?;
+    // let params = rpc_params![];
+    // client.request("get_status", params).await
+    let client = reqwest::Client::new();
+    let res_0 = client.post(Url::from_str(url.as_ref()).unwrap())
+        // .json()
+        .header("Content-Type", "application/json")
+        .body("")
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    println!("resp text: {:?}", res_0);
+    let res = client.post(Url::from_str(url.as_ref()).unwrap())
+        // .json()
+        .send()
+        .await
+        .unwrap()
+        .json::<NodeStatus>()
+        .await
+        .unwrap();
+    Ok(res)
+}
+*/
+
 pub async fn get_filtered_sc_output_event(
     url: impl AsRef<str>,
     event_filter: EventFilter,
 ) -> Result<Vec<SCOutputEvent>, client::Error> {
     let client = HttpClientBuilder::default().build(url)?;
-
     client
         .request("get_filtered_sc_output_event", rpc_params![event_filter])
         .await
@@ -58,6 +102,7 @@ pub async fn get_events(
     get_filtered_sc_output_event(url, event_filter).await
 }
 
+/*
 #[derive(Debug, Clone)]
 pub struct ReadOnlyCallParams(pub ReadOnlyCall);
 
@@ -85,6 +130,7 @@ impl Deref for ReadOnlyCallParams {
         &self.0
     }
 }
+*/
 
 /// Lightweight version of `ExecuteReadOnlyResponse` (Massa struct)
 ///
@@ -131,25 +177,7 @@ pub async fn send_operations(
 ) -> Result<Vec<OperationId>, client::Error> {
     let client = HttpClientBuilder::default().build(url)?;
 
-    // let keypair = KeyPair::generate(0).unwrap();
-    // let operation = create_execute_sc_op_with_too_much_gas(&keypair, 10);
-
     let operation: SecureShareOperation = {
-        /*
-        let op = OperationType::ExecuteSC {
-            data: Vec::new(),
-            max_gas: (u32::MAX - 1) as u64,
-            max_coins: Amount::default(),
-            datastore: Datastore::default(),
-        };
-        let content = Operation {
-            fee: Amount::default(),
-            op,
-            expire_period,
-        };
-        */
-
-        // const CHAINID_BUILDNET: u64 = 77658366;
         Operation::new_verifiable(operation, OperationSerializer::new(), keypair, BUILDNET_CHAINID).unwrap()
     };
 
@@ -170,21 +198,36 @@ const MAX_GAS_EXECUTE: u64 = 3980167295;
 const MAX_GAS_DEPLOYMENT: u64 = 3980167295;
 const PERIOD_TO_LIVE_DEFAULT: u64 = 9;
 
+#[derive(thiserror::Error, Debug)]
+pub enum DeployError {
+    #[error("Cannot read file: {0}")]
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Client(#[from] client::Error),
+}
+
 pub async fn deploy_smart_contract(
     url: impl AsRef<str> + Clone,
     key_pair: &KeyPair,
     smart_contract: &Path,
-) -> Result<Address, client::Error> {
-    // TODO: no unwrap
-    let mut fs = tokio::fs::File::open(smart_contract).await.unwrap();
+) -> Result<Address, DeployError> {
+
+    // Read the smart contract we want to deploy
     let mut file_content = Vec::new();
-    // TODO: no unwrap
-    fs.read_to_end(&mut file_content).await.unwrap();
+    let mut fs = tokio::fs::File::open(smart_contract).await?;
+    fs.read_to_end(&mut file_content).await?;
 
     //
     // TODO: function populateDatastore
     //       node_modules/@massalabs/massa-web3/dist/cmd/smartContracts/deployerUtils.js
 
+    // Datastore for ExecuteSC operation
+    // require the following keys:
+    // * CONTRACTS_NUMBER_KEY: the number of contracts we want to deploy
+    // And for each contract, we want to deploy:
+    // * contractKey: the contract bytecode we want to deploy
+    // * argsKey: the arguments for the constructor ??
+    // * coinsKey: the coins we want to pay for the deployment ??
     let ds = {
         const CONTRACTS_NUMBER_KEY: [u8; 1] = [0u8];
         let mut ds = Datastore::default();
@@ -218,12 +261,13 @@ pub async fn deploy_smart_contract(
 
     println!("ds: {:?}", ds
         .iter()
-        .filter(|(k, v)| {
+        .filter(|(k, _v)| {
             **k != 1u64.to_le_bytes().to_vec() 
         }).collect::<Vec<_>>()
     );
     println!("ds len: {:?}", ds.len());
 
+    // Execute Deployer SC that will deploy our smart contract
     let op = OperationType::ExecuteSC {
         data: DEPLOYER_BYTECODE.to_vec(),
         max_gas: MAX_GAS_DEPLOYMENT,
@@ -236,14 +280,15 @@ pub async fn deploy_smart_contract(
 
     // node_modules/@massalabs/massa-web3/dist/cmd/client/publicAPI.js
     // function fetchPeriod
-    let status = get_status(url.clone()).await.unwrap();
+    let status = get_status(url.clone()).await?;
+    // FIXME
     let last_slot = status.last_slot.unwrap();
     println!("last_slot: {}", last_slot);
     println!("period to live: {}", PERIOD_TO_LIVE_DEFAULT);
     let expire_period = last_slot.period + PERIOD_TO_LIVE_DEFAULT;
 
     let content = Operation {
-        fee: Amount::from_str("0.01").unwrap(),
+        fee: Amount::from_str("0.01").unwrap(), // FIXME
         op,
         expire_period,
     };
