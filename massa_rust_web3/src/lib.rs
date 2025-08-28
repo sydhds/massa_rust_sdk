@@ -14,6 +14,7 @@ use massa_api_exports::operation::{OperationInfo, OperationInput};
 use massa_models::operation::SecureShareOperation;
 // massa re exports
 pub use massa_api_exports::execution::{ExecuteReadOnlyResponse, ReadOnlyCall, ReadOnlyResult};
+use massa_api_exports::execution::ReadOnlyBytecodeExecution;
 pub use massa_models::{
     address::Address,
     amount::Amount,
@@ -25,7 +26,9 @@ pub use massa_models::{
     secure_share::SecureShareContent,
     slot::Slot,
 };
+use massa_models::datastore::DatastoreSerializer;
 pub use massa_signature::KeyPair;
+use massa_serialization::{SerializeError, Serializer};
 use reqwest::Url;
 // internal
 use crate::deploy::DEPLOYER_BYTECODE;
@@ -159,6 +162,19 @@ pub async fn execute_read_only_call(
         .await
 }
 
+pub async fn execute_read_only_bytecode(
+    url: impl AsRef<str>,
+    read_params: Vec<ReadOnlyBytecodeExecution>,
+) -> Result<Vec<ExecuteReadOnlyResponseLw>, client::Error> {
+
+    // Note: Massa issue: https://github.com/massalabs/massa/issues/4775
+
+    let client = HttpClientBuilder::default().build(url)?;
+    client
+        .request("execute_read_only_bytecode", rpc_params![read_params])
+        .await
+}
+
 pub async fn get_operations(
     url: impl AsRef<str>,
     operation_ids: Vec<OperationId>,
@@ -194,28 +210,33 @@ pub async fn send_operations(
     response
 }
 
-const MAX_GAS_EXECUTE: u64 = 3980167295;
-const MAX_GAS_DEPLOYMENT: u64 = 3980167295;
-const PERIOD_TO_LIVE_DEFAULT: u64 = 9;
-
 #[derive(thiserror::Error, Debug)]
 pub enum DeployError {
     #[error("Cannot read file: {0}")]
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Client(#[from] client::Error),
+    #[error("Unable to serialize the datastore (for gas estimation)")]
+    Serialize(#[from] SerializeError),
+    #[error("Unable to estimate gas cost, response: {0:?}")]
+    InvalidGasEstimation(Box<Vec<ExecuteReadOnlyResponseLw>>),
+    #[error("Max gas == {0:?} but should be > {1} && < {2}")]
+    Gas(u64, u64, u64)
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct DeployerArgs {
     /// Arguments for the deployed smart contract constructor function
-    /// Default to no arguments
-    pub constructor_arguments: Option<Vec<u8>>, // TODO: Args
+    /// Default to: no arguments
+    pub constructor_arguments: Option<Vec<u8>>, // TODO: Args struct
     /// Coins (used to pay for storage when the deployed smart contract constructor is called)
-    /// Default to 0
+    /// Only required if the smart contract constructor stores data in its storage.
+    /// Default to: 0
     pub coins: Option<u64>,
-    /// Fee for the deploy transaction (If None, use the minimal fee fetch from the rpc)
+    /// Fee for the deploy transaction (If None, use the minimal fee fetched from the rpc)
     pub fee: Option<Amount>,
+    /// Max gas to use for the deploy transaction (If None, gas will be estimated)
+    pub max_gas: Option<u64>,
 }
 
 pub async fn deploy_smart_contract(
@@ -224,6 +245,14 @@ pub async fn deploy_smart_contract(
     smart_contract: &Path,
     args: DeployerArgs,
 ) -> Result<Address, DeployError> {
+
+    // From: node_modules/@massalabs/massa-web3/dist/cmd/smartContracts/constants.d.ts
+    // const MAX_GAS_CALL: u64 = 4294167295;
+
+    const MIN_GAS_CALL: u64 = 2100000;
+    const MAX_GAS_EXECUTE: u64 = 3980167295;
+    // const MAX_GAS_DEPLOYMENT: u64 = 3980167295;
+    const PERIOD_TO_LIVE_DEFAULT: u64 = 9;
 
     // Read the smart contract we want to deploy
     let mut file_content = Vec::new();
@@ -307,7 +336,6 @@ pub async fn deploy_smart_contract(
         // == Amount::from_str("0.0001").unwrap();
         const STORAGE_BYTE_COST: Amount = Amount::from_raw(100000);
 
-
         let account_cost = STORAGE_BYTE_COST
             .checked_mul_u64(ACCOUNT_SIZE_BYTES)
             .unwrap();
@@ -323,17 +351,6 @@ pub async fn deploy_smart_contract(
     println!("max coins: {:?}", max_coins);
     println!("max coins: {:?}", max_coins.to_raw());
     //
-
-    // Execute Deployer SC that will deploy our smart contract
-    // https://docs.massa.net/docs/learn/operation-format-execution#executesc-operation-payload
-    let op = OperationType::ExecuteSC {
-        data: DEPLOYER_BYTECODE.to_vec(),
-        max_gas: MAX_GAS_DEPLOYMENT, // TODO: gas estimation
-        max_coins,
-        datastore: ds,
-    };
-
-    // println!("op: {}", op);
 
     // node_modules/@massalabs/massa-web3/dist/cmd/client/publicAPI.js
     // function fetchPeriod
@@ -351,6 +368,60 @@ pub async fn deploy_smart_contract(
             println!("Fee is too low: {} (minimal fee: {})", fee, minimal_fee);
         }
     }
+
+    // max_gas
+
+    let max_gas = {
+        let max_gas = match args.max_gas {
+            Some(max_gas) => max_gas,
+            None => {
+
+                println!("Estimating gas cost...");
+                let ds_serializer = DatastoreSerializer::new();
+                let mut buffer = Vec::new();
+                ds_serializer.serialize(&ds, &mut buffer)?;
+                println!("Estimating gas cost: ser...");
+
+                let read_params = vec![ReadOnlyBytecodeExecution {
+                    max_gas: MAX_GAS_EXECUTE,
+                    bytecode: DEPLOYER_BYTECODE.to_vec(),
+                    address: Some(Address::from_public_key(&key_pair.get_public_key())),
+                    operation_datastore: Some(buffer),
+                    fee: Some(args.fee.unwrap_or(minimal_fee)),
+                }];
+
+                let res = execute_read_only_bytecode(url.clone(), read_params).await?;
+                println!("Estimating gas cost: res: {:?}", res);
+                if let Some(res) = res.get(0) {
+                    // TODO: massa-web3 use a 20% margin for gas estimation
+                    // but this is working for deployment?
+                    res.gas_cost
+                } else {
+                    return Err(DeployError::InvalidGasEstimation(Box::new(res)));
+                }
+            }
+        };
+
+        if max_gas < MIN_GAS_CALL || max_gas > MAX_GAS_EXECUTE {
+            return Err(DeployError::Gas(max_gas, MIN_GAS_CALL, MAX_GAS_EXECUTE));
+        }
+
+        max_gas
+    };
+
+    //
+
+    // Execute Deployer SC that will deploy our smart contract
+
+    // https://docs.massa.net/docs/learn/operation-format-execution#executesc-operation-payload
+    let op = OperationType::ExecuteSC {
+        data: DEPLOYER_BYTECODE.to_vec(),
+        max_gas,
+        max_coins,
+        datastore: ds,
+    };
+
+    // println!("op: {}", op);
 
     let content = Operation {
         // fee: Amount::from_str("0.01").unwrap(), // FIXME
@@ -372,6 +443,8 @@ pub async fn deploy_smart_contract(
     // tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
     // println!("awaited...");
 
+    // TODO: separate deploy from events retrieval?
+    // TODO: rework waiting loop
     let mut c = 0;
     let start = std::time::Instant::now();
     loop {

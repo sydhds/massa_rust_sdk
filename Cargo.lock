@@ -2629,6 +2629,7 @@ dependencies = [
  "jsonrpsee",
  "massa_api_exports",
  "massa_models",
+ "massa_serialization",
  "massa_signature",
  "reqwest",
  "serde",
