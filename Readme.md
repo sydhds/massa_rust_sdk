@@ -3,7 +3,8 @@
 A rust sdk to develop smart contract for the [Massa blockchain](https://www.massa.net).
 
 This sdk is still in development and very WIP, so expect breaking changes. You have been warned!
-Rust developers are welcome to contribute. Please have a look at the issues and the roadmap.
+
+Early birds && developers are welcome to contribute. Please have a look at the [issues](issues) and the [roadmap](milestones).
 
 ## Architecture
 
@@ -42,6 +43,8 @@ Note:
 * cp -v .env.example .env
 * \_\_EDIT\_\_ .env (with wallet info)
 * cargo run --bin hello_world_scripts
+* Debug:
+  * RUST_LOG=debug cargo run --bin hello_world_scripts
 
 ### Other scripts
 

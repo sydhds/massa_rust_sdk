@@ -5,7 +5,9 @@ extern crate alloc;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 // internal
-use massa_rust_sc::{generateEvent, string_to_as_array, to_as_array, get_data, set_data, has_data};
+use massa_rust_sc::{generateEvent, string_to_as_array, to_as_array, get_data, set_data,
+                    //has_data
+};
 // third-party
 use utf16_lit::utf16;
 

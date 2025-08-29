@@ -1,20 +1,22 @@
 mod deploy;
 
 use std::collections::VecDeque;
-use std::ops::Deref;
 use std::path::Path;
 use std::str::FromStr;
+use std::time::Duration;
 // third-party
 use jsonrpsee::core::{Serialize, client};
 use jsonrpsee::tokio::io::AsyncReadExt;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params, tokio};
 use serde::Deserialize;
+use tracing::debug;
 // massa
 use massa_api_exports::node::NodeStatus;
 use massa_api_exports::operation::{OperationInfo, OperationInput};
 use massa_models::operation::SecureShareOperation;
 // massa re exports
 pub use massa_api_exports::execution::{ExecuteReadOnlyResponse, ReadOnlyCall, ReadOnlyResult};
+use massa_api_exports::execution::ReadOnlyBytecodeExecution;
 pub use massa_models::{
     address::Address,
     amount::Amount,
@@ -26,12 +28,31 @@ pub use massa_models::{
     secure_share::SecureShareContent,
     slot::Slot,
 };
+use massa_models::datastore::DatastoreSerializer;
 pub use massa_signature::KeyPair;
+use massa_serialization::{SerializeError, Serializer};
+// use reqwest::Url;
 // internal
 use crate::deploy::DEPLOYER_BYTECODE;
 
 pub const BUILDNET_URL: &str = "https://buildnet.massa.net/api/v2";
 pub const BUILDNET_CHAINID: u64 = 77658366;
+
+/*
+trait MassaJsonRpc {
+
+    type Error;
+
+    async fn post<P, R, E: std::error::Error>(&self, url: impl AsRef<str>, params: P) -> Result<R, E>;
+
+    fn empty_params<P>() -> P;
+
+    async fn get_status<P, E: std::error::Error>(&self, url: impl AsRef<str>) -> Result<NodeStatus, E> {
+        // let params = Self::empty_params();
+        self.post(url, Self::empty_params()).await
+    }
+}
+*/
 
 pub async fn get_status(url: impl AsRef<str>) -> Result<NodeStatus, client::Error> {
     let client = HttpClientBuilder::default().build(url)?;
@@ -39,12 +60,40 @@ pub async fn get_status(url: impl AsRef<str>) -> Result<NodeStatus, client::Erro
     client.request("get_status", params).await
 }
 
+/*
+pub async fn get_status_reqwest(url: impl AsRef<str>) -> Result<NodeStatus, client::Error> {
+    // let client = HttpClientBuilder::default().build(url)?;
+    // let params = rpc_params![];
+    // client.request("get_status", params).await
+    let client = reqwest::Client::new();
+    let res_0 = client.post(Url::from_str(url.as_ref()).unwrap())
+        // .json()
+        .header("Content-Type", "application/json")
+        .body("")
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    println!("resp text: {:?}", res_0);
+    let res = client.post(Url::from_str(url.as_ref()).unwrap())
+        // .json()
+        .send()
+        .await
+        .unwrap()
+        .json::<NodeStatus>()
+        .await
+        .unwrap();
+    Ok(res)
+}
+*/
+
 pub async fn get_filtered_sc_output_event(
     url: impl AsRef<str>,
     event_filter: EventFilter,
 ) -> Result<Vec<SCOutputEvent>, client::Error> {
     let client = HttpClientBuilder::default().build(url)?;
-
     client
         .request("get_filtered_sc_output_event", rpc_params![event_filter])
         .await
@@ -58,6 +107,7 @@ pub async fn get_events(
     get_filtered_sc_output_event(url, event_filter).await
 }
 
+/*
 #[derive(Debug, Clone)]
 pub struct ReadOnlyCallParams(pub ReadOnlyCall);
 
@@ -85,6 +135,7 @@ impl Deref for ReadOnlyCallParams {
         &self.0
     }
 }
+*/
 
 /// Lightweight version of `ExecuteReadOnlyResponse` (Massa struct)
 ///
@@ -113,6 +164,19 @@ pub async fn execute_read_only_call(
         .await
 }
 
+pub async fn execute_read_only_bytecode(
+    url: impl AsRef<str>,
+    read_params: Vec<ReadOnlyBytecodeExecution>,
+) -> Result<Vec<ExecuteReadOnlyResponseLw>, client::Error> {
+
+    // Note: Massa issue: https://github.com/massalabs/massa/issues/4775
+
+    let client = HttpClientBuilder::default().build(url)?;
+    client
+        .request("execute_read_only_bytecode", rpc_params![read_params])
+        .await
+}
+
 pub async fn get_operations(
     url: impl AsRef<str>,
     operation_ids: Vec<OperationId>,
@@ -131,25 +195,7 @@ pub async fn send_operations(
 ) -> Result<Vec<OperationId>, client::Error> {
     let client = HttpClientBuilder::default().build(url)?;
 
-    // let keypair = KeyPair::generate(0).unwrap();
-    // let operation = create_execute_sc_op_with_too_much_gas(&keypair, 10);
-
     let operation: SecureShareOperation = {
-        /*
-        let op = OperationType::ExecuteSC {
-            data: Vec::new(),
-            max_gas: (u32::MAX - 1) as u64,
-            max_coins: Amount::default(),
-            datastore: Datastore::default(),
-        };
-        let content = Operation {
-            fee: Amount::default(),
-            op,
-            expire_period,
-        };
-        */
-
-        // const CHAINID_BUILDNET: u64 = 77658366;
         Operation::new_verifiable(operation, OperationSerializer::new(), keypair, BUILDNET_CHAINID).unwrap()
     };
 
@@ -166,101 +212,246 @@ pub async fn send_operations(
     response
 }
 
-const MAX_GAS_EXECUTE: u64 = 3980167295;
-const MAX_GAS_DEPLOYMENT: u64 = 3980167295;
-const PERIOD_TO_LIVE_DEFAULT: u64 = 9;
+#[derive(thiserror::Error, Debug)]
+pub enum DeployError {
+    #[error("Cannot read file: {0}")]
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Client(#[from] client::Error),
+    #[error("Unable to serialize the datastore (for gas estimation)")]
+    Serialize(#[from] SerializeError),
+    #[error("Unable to estimate gas cost, response: {0:?}")]
+    InvalidGasEstimation(Box<Vec<ExecuteReadOnlyResponseLw>>),
+    #[error("Max gas == {0:?} but should be > {1} && < {2}")]
+    Gas(u64, u64, u64),
+    #[error("Invalid address retrieved from events: {0}")]
+    InvalidAddress(String),
+    #[error("Unable to retrieve the address of the deployed smart contract from events")]
+    AddressNotFound
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct DeployerArgs {
+    /// Arguments for the deployed smart contract constructor function
+    /// Default to: no arguments
+    pub constructor_arguments: Option<Vec<u8>>, // TODO: Args struct
+    /// Coins (used to pay for storage when the deployed smart contract constructor is called)
+    /// Only required if the smart contract constructor stores data in its storage.
+    /// Default to: 0
+    pub coins: Option<u64>,
+    /// Fee for the deploy transaction (If None, use the minimal fee fetched from the rpc)
+    pub fee: Option<Amount>,
+    /// Max gas to use for the deploy transaction (If None, gas will be estimated)
+    pub max_gas: Option<u64>,
+}
 
 pub async fn deploy_smart_contract(
     url: impl AsRef<str> + Clone,
     key_pair: &KeyPair,
     smart_contract: &Path,
-) -> Result<Address, client::Error> {
-    // TODO: no unwrap
-    let mut fs = tokio::fs::File::open(smart_contract).await.unwrap();
+    args: DeployerArgs,
+) -> Result<Address, DeployError> {
+
+    // From: node_modules/@massalabs/massa-web3/dist/cmd/smartContracts/constants.d.ts
+    // const MAX_GAS_CALL: u64 = 4294167295;
+
+    const MIN_GAS_CALL: u64 = 2100000;
+    const MAX_GAS_EXECUTE: u64 = 3980167295;
+    // const MAX_GAS_DEPLOYMENT: u64 = 3980167295;
+    const PERIOD_TO_LIVE_DEFAULT: u64 = 9;
+
+    // Read the smart contract we want to deploy
     let mut file_content = Vec::new();
-    // TODO: no unwrap
-    fs.read_to_end(&mut file_content).await.unwrap();
+    let mut fs = tokio::fs::File::open(smart_contract).await?;
+    fs.read_to_end(&mut file_content).await?;
+    let file_content_len = file_content.len();
 
     //
     // TODO: function populateDatastore
     //       node_modules/@massalabs/massa-web3/dist/cmd/smartContracts/deployerUtils.js
 
+    // /home/sydh/dev/perso/massa_rust_sdk/massa-hello-world/node_modules/@massalabs/massa-web3/dist/cmd/provider/jsonRpcProvider/jsonRpcProvider.js
+
+    // Datastore for ExecuteSC operation
+    // require the following keys:
+    // * CONTRACTS_NUMBER_KEY: the number of contracts we want to deploy
+    // And for each contract, we want to deploy:
+    // * contract_key: the contract bytecode we want to deploy
+    // * args_key: the arguments for the constructor ??
+    // * coins_key: the coins we want to pay for the deployment ??
     let ds = {
-        const CONTRACTS_NUMBER_KEY: [u8; 1] = [0u8];
         let mut ds = Datastore::default();
 
+        // Defined as: ```const CONTRACTS_NUMBER_KEY = new Uint8Array([0]);```
+        const CONTRACTS_NUMBER_KEY: [u8; 1] = [0u8];
         ds.insert(CONTRACTS_NUMBER_KEY.to_vec(), 1u64.to_le_bytes().to_vec());
-        // TODO: deploy 1+ SC
-        // massa-web3 function 'contractKey'
-        ds.insert(1u64.to_le_bytes().to_vec(), file_content);
+
+        // massa-web3 function 'contractKey' (in node_modules/@massalabs/massa-web3/dist/cmd/smartContracts/deployerUtils.js)
+        // 1u64 -> SC index that we want to deploy (starting at 1)
+        let contract_key = 1u64.to_le_bytes().to_vec();
+        ds.insert(contract_key, file_content);
+
         // massa-web3 function 'argsKey'
-        // TODO: Args
-        let mut argsKey = 1u64.to_le_bytes().to_vec();
-        // FIXME
-        argsKey.extend_from_slice(&[1, 0, 0, 0, 0]);
+        // 1u64 -> SC index that we want to deploy (starting at 1)
+        // + a Uint8Array of length 1: [0] (so [1, 0, 0, 0] for the size + [0] for the value
+        let mut args_key = 1u64.to_le_bytes().to_vec();
+        args_key.extend_from_slice(&[1, 0, 0, 0, 0]);
+        // Arguments expected by the deployed smart contract constructor function
         // XXX: Args encoded 'Massa'
+        /*
         ds.insert(argsKey, [
             5,   0,   0,  0, 77,
             97, 115, 115, 97
         ].to_vec());
+        */
+        ds.insert(args_key, args.constructor_arguments.unwrap_or_default());
+
         // massa-web3 function 'coinsKey'
-        let mut coinsKey = 1u64.to_le_bytes().to_vec();
-        // FIXME
-        coinsKey.extend_from_slice(&[1, 0, 0, 0, 1]);
-        // FIXME:
-        ds.insert(coinsKey, [
+        // 1u64 -> SC index that we want to deploy (starting at 1)
+        // + a Uint8Array of length 1: [1] (so [1, 0, 0, 0] for the size + [1] for the value
+        let mut coins_key = 1u64.to_le_bytes().to_vec();
+        coins_key.extend_from_slice(&[1, 0, 0, 0, 1]);
+        // Coins as u64 (serialized as LE bytes)
+        /*
+        ds.insert(coins_key, [
             128, 150, 152, 0,
             0,   0,   0, 0
         ].to_vec());
+        */
+        // let coins_value = 10000000u64.to_le_bytes().to_vec();
+        let coins_value = args.coins.unwrap_or(0u64).to_le_bytes().to_vec();
+        ds.insert(coins_key, coins_value);
 
         ds
     };
 
-    println!("ds: {:?}", ds
-        .iter()
-        .filter(|(k, v)| {
-            **k != 1u64.to_le_bytes().to_vec() 
-        }).collect::<Vec<_>>()
-    );
-    println!("ds len: {:?}", ds.len());
+    // println!("ds: {:?}", ds
+    //     .iter()
+    //     .filter(|(k, _v)| {
+    //         **k != 1u64.to_le_bytes().to_vec()
+    //     }).collect::<Vec<_>>()
+    // );
+    // println!("ds len: {:?}", ds.len());
 
+    // max_coins
+    // == Max amount of coins allowed to be spent by the execution
+    let max_coins: Amount = {
+        // node_modules/@massalabs/massa-web3/dist/cmd/basicElements/storage.js
+        const ACCOUNT_SIZE_BYTES: u64 = 10;
+
+        // == Amount::from_str("0.0001").unwrap();
+        const STORAGE_BYTE_COST: Amount = Amount::from_raw(100000);
+
+        let account_cost = STORAGE_BYTE_COST
+            .checked_mul_u64(ACCOUNT_SIZE_BYTES)
+            .unwrap();
+
+        STORAGE_BYTE_COST
+            .checked_mul_u64(file_content_len as u64)
+            .unwrap()
+            .checked_add(account_cost)
+            .unwrap()
+            .checked_add(Amount::from_raw(args.coins.unwrap_or(0u64)))
+            .unwrap()
+    };
+    debug!("max coins: {:?}", max_coins);
+    debug!("max coins: {:?}", max_coins.to_raw());
+    //
+
+    // node_modules/@massalabs/massa-web3/dist/cmd/client/publicAPI.js
+    // function fetchPeriod
+    let status = get_status(url.clone()).await?;
+    // Note: get_status should always return a valid last_slot
+    let last_slot = status.last_slot.expect("get_status last_slot is None");
+    debug!("last_slot: {}", last_slot);
+    debug!("period to live: {}", PERIOD_TO_LIVE_DEFAULT);
+    let expire_period = last_slot.period + PERIOD_TO_LIVE_DEFAULT;
+
+    let minimal_fee = status.minimal_fees;
+    if let Some(fee) = args.fee {
+        if fee < minimal_fee {
+            // TODO: warn!
+            println!("Fee is too low: {} (minimal fee: {})", fee, minimal_fee);
+        }
+    }
+
+    // max_gas
+
+    let max_gas = {
+        let max_gas = match args.max_gas {
+            Some(max_gas) => max_gas,
+            None => {
+
+                debug!("Estimating gas cost...");
+                let ds_serializer = DatastoreSerializer::new();
+                let mut buffer = Vec::new();
+                ds_serializer.serialize(&ds, &mut buffer)?;
+
+                let read_params = vec![ReadOnlyBytecodeExecution {
+                    max_gas: MAX_GAS_EXECUTE,
+                    bytecode: DEPLOYER_BYTECODE.to_vec(),
+                    address: Some(Address::from_public_key(&key_pair.get_public_key())),
+                    operation_datastore: Some(buffer),
+                    fee: Some(args.fee.unwrap_or(minimal_fee)),
+                }];
+
+                let res = execute_read_only_bytecode(url.clone(), read_params).await?;
+                debug!("Estimating gas cost: res: {:?}", res);
+                if let Some(res) = res.get(0) {
+                    // TODO: massa-web3 use a 20% margin for gas estimation,
+                    // but this is working for deployment?
+                    res.gas_cost
+                } else {
+                    return Err(DeployError::InvalidGasEstimation(Box::new(res)));
+                }
+            }
+        };
+
+        if max_gas < MIN_GAS_CALL || max_gas > MAX_GAS_EXECUTE {
+            return Err(DeployError::Gas(max_gas, MIN_GAS_CALL, MAX_GAS_EXECUTE));
+        }
+
+        max_gas
+    };
+
+    //
+
+    // Execute Deployer SC that will deploy our smart contract
+
+    // https://docs.massa.net/docs/learn/operation-format-execution#executesc-operation-payload
     let op = OperationType::ExecuteSC {
         data: DEPLOYER_BYTECODE.to_vec(),
-        max_gas: MAX_GAS_DEPLOYMENT,
-        // max_coins: Amount::from_str("897450289").unwrap(), // TODO
-        max_coins: Amount::from_raw(897450289), // TODO
+        max_gas,
+        max_coins,
         datastore: ds,
     };
 
     // println!("op: {}", op);
 
-    // node_modules/@massalabs/massa-web3/dist/cmd/client/publicAPI.js
-    // function fetchPeriod
-    let status = get_status(url.clone()).await.unwrap();
-    let last_slot = status.last_slot.unwrap();
-    println!("last_slot: {}", last_slot);
-    println!("period to live: {}", PERIOD_TO_LIVE_DEFAULT);
-    let expire_period = last_slot.period + PERIOD_TO_LIVE_DEFAULT;
-
     let content = Operation {
-        fee: Amount::from_str("0.01").unwrap(),
+        // fee: Amount::from_str("0.01").unwrap(), // FIXME
+        fee: args.fee.unwrap_or(minimal_fee),
         op,
         expire_period,
     };
 
-    println!("content fee: {:?} - raw: {}", content.fee, content.fee.to_raw());
-    println!("content ex period: {:?}", content.expire_period);
+    debug!("content fee: {:?} - raw: {}", content.fee, content.fee.to_raw());
+    debug!("content ex period: {:?}", content.expire_period);
     // panic!();
 
     let op_id = send_operations(url.clone(), content, key_pair).await?;
-    println!("operation ids: {:?}", op_id);
-    println!("operation ids: {:?}", op_id[0]);
+    debug!("operation ids: {:?}", op_id);
+    debug!("operation ids: {:?}", op_id[0]);
 
     // FIXME: wait is final
     // println!("Wait...");
     // tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
     // println!("awaited...");
 
+    // TODO: separate deploy from events retrieval?
+    // TODO: rework waiting loop
+
+    /*
     let mut c = 0;
     let start = std::time::Instant::now();
     loop {
@@ -298,8 +489,31 @@ pub async fn deploy_smart_contract(
             break;
         }
     }
+    */
 
-    println!("elapsed time: {:?}", start.elapsed());
+    const DEFAULT_WAIT_TIMEOUT_MS: Duration = Duration::from_millis(60000);
+    const DEFAULT_WAIT_PERIOD_MS: Duration = Duration::from_millis(500);
+
+    let start = std::time::Instant::now();
+    loop {
+        let status = get_operations(url.clone(), op_id.clone()).await;
+        if let Ok(status) = status {
+            if status.len() > 0 {
+                if status[0].op_exec_status.is_some() || status[0].is_operation_final == Some(true) {
+                    // println!("exec done or is_final: {}", status[0]);
+                    break;
+                }
+            }
+        }
+
+        tokio::time::sleep(DEFAULT_WAIT_PERIOD_MS).await;
+        if start.elapsed() > DEFAULT_WAIT_TIMEOUT_MS {
+            // println!("Exiting timeout");
+            break;
+        }
+    }
+
+    // println!("elapsed time: {:?}", start.elapsed());
     let event_filter = EventFilter {
         start: None,
         end: None,
@@ -312,23 +526,26 @@ pub async fn deploy_smart_contract(
     };
     let events = get_events(url, event_filter).await?;
 
-    println!("events: {:#?}", events);
+    debug!("events: {:#?}", events);
     
     const EVENT_CONSTRUCTOR_ADDRESS_PREFIX: &str = "Contract deployed at address: ";
-    let addr: Vec<Address> = events
+    let addr: Vec<&str> = events
         .iter()
         .filter_map(|event| {
             if event.data.starts_with(EVENT_CONSTRUCTOR_ADDRESS_PREFIX) {
                 let addr_str = &event.data[EVENT_CONSTRUCTOR_ADDRESS_PREFIX.len()..];
-                Some(Address::from_str(addr_str).unwrap())
+                Some(addr_str)
             } else {
                 None
             }
         })
         .collect();
 
-    // FIXME: no unwrap
-    Ok(addr.get(0).unwrap().clone())
+    let addr_1 = addr
+        .first()
+        .ok_or(DeployError::AddressNotFound)?;
+    Address::from_str(addr_1)
+        .map_err(|_e| DeployError::InvalidAddress(addr_1.to_string()))
 }
 
 #[cfg(test)]

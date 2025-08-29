@@ -1,8 +1,7 @@
 mod interface;
 
-use std::io::Write;
 // std
-use std::path::PathBuf;
+use std::io::Write;
 // third-party
 use massa_sc_runtime::{Compiler, CondomLimits, GasCosts, Interface, RuntimeModule, run_function};
 use tempfile::NamedTempFile;
