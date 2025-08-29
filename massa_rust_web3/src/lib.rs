@@ -3,11 +3,13 @@ mod deploy;
 use std::collections::VecDeque;
 use std::path::Path;
 use std::str::FromStr;
+use std::time::Duration;
 // third-party
 use jsonrpsee::core::{Serialize, client};
 use jsonrpsee::tokio::io::AsyncReadExt;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params, tokio};
 use serde::Deserialize;
+use tracing::debug;
 // massa
 use massa_api_exports::node::NodeStatus;
 use massa_api_exports::operation::{OperationInfo, OperationInput};
@@ -29,7 +31,7 @@ pub use massa_models::{
 use massa_models::datastore::DatastoreSerializer;
 pub use massa_signature::KeyPair;
 use massa_serialization::{SerializeError, Serializer};
-use reqwest::Url;
+// use reqwest::Url;
 // internal
 use crate::deploy::DEPLOYER_BYTECODE;
 
@@ -221,7 +223,11 @@ pub enum DeployError {
     #[error("Unable to estimate gas cost, response: {0:?}")]
     InvalidGasEstimation(Box<Vec<ExecuteReadOnlyResponseLw>>),
     #[error("Max gas == {0:?} but should be > {1} && < {2}")]
-    Gas(u64, u64, u64)
+    Gas(u64, u64, u64),
+    #[error("Invalid address retrieved from events: {0}")]
+    InvalidAddress(String),
+    #[error("Unable to retrieve the address of the deployed smart contract from events")]
+    AddressNotFound
 }
 
 #[derive(Debug, Clone, Default)]
@@ -348,8 +354,8 @@ pub async fn deploy_smart_contract(
             .checked_add(Amount::from_raw(args.coins.unwrap_or(0u64)))
             .unwrap()
     };
-    println!("max coins: {:?}", max_coins);
-    println!("max coins: {:?}", max_coins.to_raw());
+    debug!("max coins: {:?}", max_coins);
+    debug!("max coins: {:?}", max_coins.to_raw());
     //
 
     // node_modules/@massalabs/massa-web3/dist/cmd/client/publicAPI.js
@@ -357,8 +363,8 @@ pub async fn deploy_smart_contract(
     let status = get_status(url.clone()).await?;
     // Note: get_status should always return a valid last_slot
     let last_slot = status.last_slot.expect("get_status last_slot is None");
-    println!("last_slot: {}", last_slot);
-    println!("period to live: {}", PERIOD_TO_LIVE_DEFAULT);
+    debug!("last_slot: {}", last_slot);
+    debug!("period to live: {}", PERIOD_TO_LIVE_DEFAULT);
     let expire_period = last_slot.period + PERIOD_TO_LIVE_DEFAULT;
 
     let minimal_fee = status.minimal_fees;
@@ -376,11 +382,10 @@ pub async fn deploy_smart_contract(
             Some(max_gas) => max_gas,
             None => {
 
-                println!("Estimating gas cost...");
+                debug!("Estimating gas cost...");
                 let ds_serializer = DatastoreSerializer::new();
                 let mut buffer = Vec::new();
                 ds_serializer.serialize(&ds, &mut buffer)?;
-                println!("Estimating gas cost: ser...");
 
                 let read_params = vec![ReadOnlyBytecodeExecution {
                     max_gas: MAX_GAS_EXECUTE,
@@ -391,9 +396,9 @@ pub async fn deploy_smart_contract(
                 }];
 
                 let res = execute_read_only_bytecode(url.clone(), read_params).await?;
-                println!("Estimating gas cost: res: {:?}", res);
+                debug!("Estimating gas cost: res: {:?}", res);
                 if let Some(res) = res.get(0) {
-                    // TODO: massa-web3 use a 20% margin for gas estimation
+                    // TODO: massa-web3 use a 20% margin for gas estimation,
                     // but this is working for deployment?
                     res.gas_cost
                 } else {
@@ -430,13 +435,13 @@ pub async fn deploy_smart_contract(
         expire_period,
     };
 
-    println!("content fee: {:?} - raw: {}", content.fee, content.fee.to_raw());
-    println!("content ex period: {:?}", content.expire_period);
+    debug!("content fee: {:?} - raw: {}", content.fee, content.fee.to_raw());
+    debug!("content ex period: {:?}", content.expire_period);
     // panic!();
 
     let op_id = send_operations(url.clone(), content, key_pair).await?;
-    println!("operation ids: {:?}", op_id);
-    println!("operation ids: {:?}", op_id[0]);
+    debug!("operation ids: {:?}", op_id);
+    debug!("operation ids: {:?}", op_id[0]);
 
     // FIXME: wait is final
     // println!("Wait...");
@@ -445,6 +450,8 @@ pub async fn deploy_smart_contract(
 
     // TODO: separate deploy from events retrieval?
     // TODO: rework waiting loop
+
+    /*
     let mut c = 0;
     let start = std::time::Instant::now();
     loop {
@@ -482,8 +489,31 @@ pub async fn deploy_smart_contract(
             break;
         }
     }
+    */
 
-    println!("elapsed time: {:?}", start.elapsed());
+    const DEFAULT_WAIT_TIMEOUT_MS: Duration = Duration::from_millis(60000);
+    const DEFAULT_WAIT_PERIOD_MS: Duration = Duration::from_millis(500);
+
+    let start = std::time::Instant::now();
+    loop {
+        let status = get_operations(url.clone(), op_id.clone()).await;
+        if let Ok(status) = status {
+            if status.len() > 0 {
+                if status[0].op_exec_status.is_some() || status[0].is_operation_final == Some(true) {
+                    // println!("exec done or is_final: {}", status[0]);
+                    break;
+                }
+            }
+        }
+
+        tokio::time::sleep(DEFAULT_WAIT_PERIOD_MS).await;
+        if start.elapsed() > DEFAULT_WAIT_TIMEOUT_MS {
+            // println!("Exiting timeout");
+            break;
+        }
+    }
+
+    // println!("elapsed time: {:?}", start.elapsed());
     let event_filter = EventFilter {
         start: None,
         end: None,
@@ -496,23 +526,26 @@ pub async fn deploy_smart_contract(
     };
     let events = get_events(url, event_filter).await?;
 
-    println!("events: {:#?}", events);
+    debug!("events: {:#?}", events);
     
     const EVENT_CONSTRUCTOR_ADDRESS_PREFIX: &str = "Contract deployed at address: ";
-    let addr: Vec<Address> = events
+    let addr: Vec<&str> = events
         .iter()
         .filter_map(|event| {
             if event.data.starts_with(EVENT_CONSTRUCTOR_ADDRESS_PREFIX) {
                 let addr_str = &event.data[EVENT_CONSTRUCTOR_ADDRESS_PREFIX.len()..];
-                Some(Address::from_str(addr_str).unwrap())
+                Some(addr_str)
             } else {
                 None
             }
         })
         .collect();
 
-    // FIXME: no unwrap
-    Ok(addr.get(0).unwrap().clone())
+    let addr_1 = addr
+        .first()
+        .ok_or(DeployError::AddressNotFound)?;
+    Address::from_str(addr_1)
+        .map_err(|_e| DeployError::InvalidAddress(addr_1.to_string()))
 }
 
 #[cfg(test)]

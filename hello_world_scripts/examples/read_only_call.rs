@@ -1,11 +1,6 @@
-use std::str::FromStr;
 use clap::Parser;
-use massa_rust_web3::{
-    Address,
-    BUILDNET_URL,
-    ReadOnlyCall,
-    execute_read_only_call,
-};
+use massa_rust_web3::{Address, BUILDNET_URL, ReadOnlyCall, execute_read_only_call};
+use std::str::FromStr;
 
 const CONTRACT_ADDRESS: &str = "AS1AArefHYqYd9KB8wcCkvgesDap2teidRdwPJA22DpZqFxPUxuY";
 const CALLER_ADDRESS: &str = "AU12NTxUbAFvHzrLH3XKwxkNgsjPqiAadnbthJz2v1TuNJEyWU2Cx";
@@ -13,7 +8,6 @@ const CALLER_ADDRESS: &str = "AU12NTxUbAFvHzrLH3XKwxkNgsjPqiAadnbthJz2v1TuNJEyWU
 #[derive(Debug, Clone, Parser)]
 #[command(about = "read_only_call example", long_about = None)]
 pub struct Args {
-
     #[arg(long = "contract", default_value = CONTRACT_ADDRESS, help = "Hello SC address")]
     pub contract_address: String,
 
@@ -23,12 +17,13 @@ pub struct Args {
 
 #[tokio::main]
 async fn main() {
-
     let args = Args::parse();
 
-    let sc_address = Address::from_str(args.contract_address.as_str()).expect("Please provide a valid SC address");
+    let sc_address = Address::from_str(args.contract_address.as_str())
+        .expect("Please provide a valid SC address");
     println!("SC address: {:?}", sc_address);
-    let caller_address = Address::from_str(args.caller_address.as_str()).expect("Please provide a valid address (caller address)");
+    let caller_address = Address::from_str(args.caller_address.as_str())
+        .expect("Please provide a valid address (caller address)");
     println!("Caller address: {:?}", caller_address);
 
     // Call hello() function from SC

@@ -43,6 +43,8 @@ Note:
 * cp -v .env.example .env
 * \_\_EDIT\_\_ .env (with wallet info)
 * cargo run --bin hello_world_scripts
+* Debug:
+  * RUST_LOG=debug cargo run --bin hello_world_scripts
 
 ### Other scripts
 
