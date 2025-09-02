@@ -19,7 +19,8 @@ async fn main() {
     let pkey = std::env::var("PRIVATE_KEY").unwrap();
     let keypair = KeyPair::from_str(pkey.as_str()).unwrap();
 
-    let wasm_path = PathBuf::from("target/wasm32-unknown-unknown/release/main.wasm");
+    // let wasm_path = PathBuf::from("target/wasm32-unknown-unknown/release/main.wasm");
+    let wasm_path = PathBuf::from("target/wasm32-unknown-unknown/release/hello_world.wasm");
     info!("Deploying: {:?}", wasm_path);
 
     let deploy_args = DeployerArgs {

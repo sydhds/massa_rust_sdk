@@ -1,5 +1,13 @@
 #![no_std]
 
+// Massa blockchain only accept Wasm without the reference-types and multivalue features
+// According to this blog post: https://blog.rust-lang.org/2024/09/24/webassembly-targets-change-in-default-target-features/
+// this is the default for Rust 1.82+
+// So need to compile using Rust nightly (see blog post)
+// See also:
+// https://github.com/rust-lang/rust/issues/128475
+// https://github.com/rust-lang/rust/pull/128511
+
 use lol_alloc::LeakingPageAllocator;
 #[global_allocator]
 static ALLOCATOR: LeakingPageAllocator = LeakingPageAllocator;
@@ -76,8 +84,6 @@ macro_rules! string_to_as_array {
         to_as_array::<{N__ + 4}>(K_U8__).as_slice()
     }};
 }
-
-
 
 /*
 #[panic_handler]
