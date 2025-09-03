@@ -19,6 +19,8 @@ fn main() {
     // println!("Should run with wasm now...");
     let wasm_file = std::env::args().nth(1).unwrap();
     println!("Wasm file: {wasm_file}");
+    let test_filter = std::env::args().nth(2);
+    println!("Test filter: {test_filter:?}");
 
     let limit = u64::MAX;
 
@@ -37,7 +39,7 @@ fn main() {
     // Note: cannot access Wasmer module (hidden in RuntimeModule struct from massa-sc-runtime)
     //       so we need to do it manually
 
-    let unit_test_functions = get_wasm_functions(bytecode.as_slice());
+    let unit_test_functions = get_wasm_functions(bytecode.as_slice(), test_filter);
 
     for f in unit_test_functions {
 
@@ -68,7 +70,7 @@ fn main() {
     }
 }
 
-fn get_wasm_functions(wasm_content: &[u8]) -> Vec<String> {
+fn get_wasm_functions(wasm_content: &[u8], test_filter: Option<String>) -> Vec<String> {
 
     use wasmer::{Engine, Module, Store, ExternType};
 
@@ -80,8 +82,20 @@ fn get_wasm_functions(wasm_content: &[u8]) -> Vec<String> {
         .exports()
         .filter_map(|export| {
             if let ExternType::Function(_f) = export.ty() && export.name().starts_with(UNIT_TEST_PREFIX) {
-                Some(export.name().to_string())
+                if let Some(filter) = &test_filter {
+                    if export.name().find(filter).is_some() {
+                        // Test name matched the test filter
+                        Some(export.name().to_string())
+                    } else {
+                        // Test name filtered out
+                        None
+                    }
+                } else {
+                    // No test_filter
+                    Some(export.name().to_string())
+                }
             } else {
+                // Not a wasm function
                 None
             }
         })
