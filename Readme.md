@@ -80,11 +80,18 @@ Writing a handbook is planned, but in the meantime, you can refer to the followi
   * example - get_status: call JsonRPC get_status function
   * example - get_operations: call JsonRPC get_operations function
 
-## Support Our Mission 💎 ##
+## Support Our Mission 💎
 
 The massa rust sdk is an independent project from [Massalabs](https://www.massa.net) or the [Massa foundation](https://massa.foundation/).
 
-### Why Your Support Matters ###
+### How to support us
+
+* Crypto donations
+  * BTC (network: BITCOIN): 1Gtq8FDSqw4VWxEhFDkMkfdGDa6sxJiaqf
+  * Ethereum (+ USDT/ERC20, network: Ethereum): 0xa9d24971ee2ece918a4e5ed930da33e71a901bf9
+  * Massa: AU1NGhiqutBytHdUE38bGeNYh9XnCzCCWdcvM6aTimceebKvJhpG
+
+### Why Your Support Matters
 
 - Your continued support helps us provide regular updates and remain independent, so we can fulfill our mission
 - Sustained funding is key to quickly releasing new features requested by you and other community members
