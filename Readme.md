@@ -58,7 +58,7 @@ Note:
 
 ## Developing Massa smart contracts in Rust
 
-Writing a handbook is planned, but in the meantime, you can refer to the following documentation & examples:
+Writing a dev book (similar to [the Rust book](https://github.com/rust-lang/book)) is planned, but in the meantime, you can refer to the following documentation & examples:
 
 ### Documentation (Smart contract development)
 
@@ -82,14 +82,7 @@ Writing a handbook is planned, but in the meantime, you can refer to the followi
 
 ## Support Our Mission 💎
 
-The massa rust sdk is an independent project from [Massalabs](https://www.massa.net) or the [Massa foundation](https://massa.foundation/).
-
-### How to support us
-
-* Crypto donations
-  * BTC (network: BITCOIN): 1Gtq8FDSqw4VWxEhFDkMkfdGDa6sxJiaqf
-  * Ethereum (+ USDT/ERC20, network: Ethereum): 0xa9d24971ee2ece918a4e5ed930da33e71a901bf9
-  * Massa: AU1NGhiqutBytHdUE38bGeNYh9XnCzCCWdcvM6aTimceebKvJhpG
+We are not affiliated with [Massa Labs](https://www.massa.net) or [Massa Foundation](https://massa.foundation/).
 
 ### Why Your Support Matters
 
@@ -101,3 +94,10 @@ Please also leave [a star](https://github.com/sydhds/massa_rust_sdk) on GitHub i
 **A big thank you to all current and past sponsors, whose generous support has been and continues to be essential to the success of the project!**
 
 [View Sponsors ›](SPONSORS.md)
+
+### How to support us
+
+* Crypto donations
+  * BTC (network: BITCOIN): 1Gtq8FDSqw4VWxEhFDkMkfdGDa6sxJiaqf
+  * Ethereum (+ USDT/ERC20, network: Ethereum): 0xa9d24971ee2ece918a4e5ed930da33e71a901bf9
+  * Massa: AU1NGhiqutBytHdUE38bGeNYh9XnCzCCWdcvM6aTimceebKvJhpG
