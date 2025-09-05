@@ -41,7 +41,7 @@ Or manually:
 * cargo run -p massa_sc_runner -- target/wasm32-unknown-unknown/debug/deps/hello_world-XXXXX.wasm
 
 Note: 
-* Require Rust 1.88 (for massa_sc_runner) until this bug is fixed: https://github.com/wasmerio/wasmer/issues/5610 and released.
+* Require Rust 1.88 (< Rust 1.89) to build massa_sc_runner until this bug is fixed: https://github.com/wasmerio/wasmer/issues/5610 and released. 
 * Debug build of massa_sc_runner is used to run the tests. See [config.toml](.cargo/config.toml) for more details.
 
 ### Deploy
