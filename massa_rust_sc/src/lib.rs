@@ -24,14 +24,14 @@ extern "C" {
     ///
     /// * event: a pointer to an utf-16 string (prefixed with array size, see [string_to_as_array!](string_to_as_array!))
     #[link_name = "assembly_script_generate_event"]
-    pub fn generateEvent(event: i32) -> ();
+    pub fn assembly_script_generate_event(event: i32) -> ();
 
     /// Store a value in smart contract storage
     ///
     /// * key: a pointer to a byte slice (prefixed with array size)
     /// * value: a pointer to a byte slice (prefixed with array size)
     #[link_name = "assembly_script_set_data"]
-    pub fn set_data(key: i32, value: i32) -> ();
+    pub fn assembly_script_set_data(key: i32, value: i32) -> ();
 
     /// Get a value stored in smart contract storage
     ///
@@ -39,7 +39,7 @@ extern "C" {
     ///
     /// Return: a pointer to a byte slice (prefixed with array size)
     #[link_name = "assembly_script_get_data"]
-    pub fn get_data(key: i32) -> i32;
+    pub fn assembly_script_get_data(key: i32) -> i32;
 
     /// Check if a value is stored in smart contract storage
     ///
@@ -47,7 +47,7 @@ extern "C" {
     ///
     /// Return: a boolean value
     #[link_name = "assembly_script_has_data"]
-    pub fn has_data(key: i32) -> bool;
+    pub fn assembly_script_has_data(key: i32) -> bool;
 }
 
 #[no_mangle]
@@ -92,3 +92,42 @@ fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
     core::arch::wasm32::unreachable()
 }
 */
+
+pub trait AsMemoryModel {
+
+    const HEADER_SIZE: usize = 4;
+
+    /// Get a pointer to the header
+    ///
+    /// In the AssemblyScript memory model, the header is just before the data. So in memory, we should have
+    /// header|data
+    /// header: 4 bytes (size of the data as u32) -> N
+    /// data: N bytes
+    fn as_ptr_header(&self) -> *const u8;
+
+    /// Get a pointer to the data
+    fn as_ptr_data_raw(&self) -> *const u8 {
+        unsafe {
+            self.as_ptr_header().offset(Self::HEADER_SIZE as isize)
+        }
+    }
+
+    fn as_ptr_data(&self) -> i32 {
+        self.as_ptr_data_raw() as i32
+    }
+}
+
+impl AsMemoryModel for &[u8] {
+    fn as_ptr_header(&self) -> *const u8 {
+        // TODO: can we have this checks in the Trait? in Trait::as_ptr_data_raw?
+        debug_assert!(self.len() >= <&[u8] as AsMemoryModel>::HEADER_SIZE);
+        // TODO: get len and check if it is valid
+        self.as_ptr()
+    }
+}
+
+pub fn generate_event<T: AsMemoryModel>(event: T) {
+    unsafe {
+        assembly_script_generate_event(event.as_ptr_data());
+    }
+}

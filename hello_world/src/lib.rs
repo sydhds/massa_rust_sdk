@@ -5,9 +5,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 // internal
-use massa_rust_sc::{generateEvent, string_to_as_array, to_as_array, get_data, set_data,
-                    //has_data
-};
+use massa_rust_sc::{assembly_script_generate_event, string_to_as_array, to_as_array, assembly_script_get_data, assembly_script_set_data, generate_event};
 // third-party
 use utf16_lit::utf16;
 
@@ -24,10 +22,13 @@ extern "C" fn constructor() {
 
     // Use generateEvent
     // Note: generateEvent requires an UTF16 encoded string as input
+    /*
     unsafe {
         let ptr = EXAMPLE.as_ptr().offset(4);
-        generateEvent(ptr as i32);
+        assembly_script_generate_event(ptr as i32);
     }
+    */
+    generate_event(EXAMPLE);
 
     // Use generateEvent but with dynamic data (dynamic Rust string)
     let msg = format!("hello there {}!!", 42);
@@ -40,7 +41,7 @@ extern "C" fn constructor() {
         msg_final[0..4].copy_from_slice(msg_utf8.len().to_le_bytes().as_slice());
         msg_final[4..].copy_from_slice(msg_utf8);
         let ptr = msg_final.as_ptr().offset(4);
-        generateEvent(ptr as i32);
+        assembly_script_generate_event(ptr as i32);
     }
 
     // Storage set
@@ -50,7 +51,7 @@ extern "C" fn constructor() {
             let key_ptr = KEY.as_ptr().offset(4) as i32;
             let value_ptr = VALUE.as_ptr().offset(4) as i32;
             // generateEvent(value_ptr);
-            set_data(key_ptr, value_ptr);
+            assembly_script_set_data(key_ptr, value_ptr);
             // assert!(has_data(key_ptr));
         }
     }
@@ -63,7 +64,7 @@ extern "C" fn hello() -> *mut u8 {
     #[allow(clippy::let_and_return)]
     let value_ptr = unsafe {
         let key_ptr = KEY.as_ptr().offset(4); // as i32;
-        let value_ptr = get_data(key_ptr as i32);
+        let value_ptr = assembly_script_get_data(key_ptr as i32);
         value_ptr as *mut u8
     };
 
@@ -81,7 +82,7 @@ mod tests {
     use super::*;
     use core::ptr::slice_from_raw_parts;
     use core::slice;
-    use massa_rust_sc::has_data;
+    use massa_rust_sc::assembly_script_has_data;
 
     #[test]
     #[no_mangle]
@@ -94,9 +95,9 @@ mod tests {
         unsafe {
             let key_ptr = T_KEY.as_ptr().offset(4) as i32;
             let value_ptr = T_VALUE.as_ptr().offset(4) as i32;
-            generateEvent(value_ptr);
-            set_data(key_ptr, value_ptr);
-            assert!(has_data(key_ptr));
+            assembly_script_generate_event(value_ptr);
+            assembly_script_set_data(key_ptr, value_ptr);
+            assert!(assembly_script_has_data(key_ptr));
         }
 
         // Now call hello()
