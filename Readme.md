@@ -25,9 +25,6 @@ Tested with `cargo 1.90.0-nightly (eabb4cd92 2025-07-09)`
 ### Build (without nightly)
 
 * cargo build -p hello_world --target=wasm32-unknown-unknown --release
-
-### Post build
-
 * ./build_post.sh
 
 ### Unit tests

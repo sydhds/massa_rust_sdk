@@ -5,7 +5,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 // internal
-use massa_rust_sc::{assembly_script_generate_event, string_to_as_array, to_as_array, assembly_script_get_data, assembly_script_set_data, generate_event};
+use massa_rust_sc::{assembly_script_generate_event, string_to_as_array, to_as_array, assembly_script_get_data, assembly_script_set_data, generate_event, AsVec};
 // third-party
 use utf16_lit::utf16;
 
@@ -33,6 +33,9 @@ extern "C" fn constructor() {
     // Use generateEvent but with dynamic data (dynamic Rust string)
     let msg = format!("hello there {}!!", 42);
     unsafe {
+        // let msg_utf16 = msg.encode_utf16().collect::<AsVec<u16>>();
+        // generate_event(msg_utf16);
+
         let msg_utf16 = msg.encode_utf16().collect::<Vec<u16>>();
         let msg_utf16_slice = msg_utf16.as_slice();
         let msg_utf8: &[u8] = bytemuck::cast_slice(msg_utf16_slice);

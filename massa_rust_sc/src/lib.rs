@@ -14,6 +14,7 @@ static ALLOCATOR: LeakingPageAllocator = LeakingPageAllocator;
 
 extern crate alloc;
 use alloc::vec;
+use alloc::vec::Vec;
 
 #[link(wasm_import_module = "massa")]
 extern "C" {
@@ -119,10 +120,40 @@ pub trait AsMemoryModel {
 
 impl AsMemoryModel for &[u8] {
     fn as_ptr_header(&self) -> *const u8 {
-        // TODO: can we have this checks in the Trait? in Trait::as_ptr_data_raw?
-        debug_assert!(self.len() >= <&[u8] as AsMemoryModel>::HEADER_SIZE);
-        // TODO: get len and check if it is valid
+
+        {
+            // TODO: can we have this checks in the Trait? in Trait::as_ptr_data_raw?
+            //       require SuperTrait like: trait AsMemoryModel: AsRef<[u8]> + AsMemoryModel {} ?
+            debug_assert!(self.len() >= <&[u8] as AsMemoryModel>::HEADER_SIZE);
+            let data_len = u32::from_le_bytes(self[..4].try_into().unwrap());
+            debug_assert!(data_len as usize + 4 == self.len());
+        }
+
         self.as_ptr()
+    }
+}
+
+pub struct AsVec<T>(Vec<T>);
+
+impl FromIterator<u16> for AsVec<u16> {
+    fn from_iter<I: IntoIterator<Item = u16>>(iter: I) -> Self {
+
+        let mut v = vec![0; 2];
+        v.extend(iter);
+        let v_len_: u32 = (v.len() * 2 - 2) as u32;
+        let v_len_bytes = v_len_.to_le_bytes();
+        let v_0: [u8; 2] = [v_len_bytes[0], v_len_bytes[1]];
+        let v_1: [u8; 2] = [v_len_bytes[2], v_len_bytes[3]];
+        v[0] = u16::from_le_bytes(v_0);
+        v[1] = u16::from_le_bytes(v_1);
+        Self(v)
+    }
+}
+
+impl AsMemoryModel for AsVec<u16> {
+    fn as_ptr_header(&self) -> *const u8 {
+        let slice: &[u8] = bytemuck::cast_slice(self.0.as_slice());
+        slice.as_ptr()
     }
 }
 
