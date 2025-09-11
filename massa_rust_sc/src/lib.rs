@@ -136,11 +136,11 @@ impl AsMemoryModel for &[u8] {
 pub struct AsVec<T>(Vec<T>);
 
 impl FromIterator<u16> for AsVec<u16> {
-    fn from_iter<I: IntoIterator<Item = u16>>(iter: I) -> Self {
 
+    fn from_iter<I: IntoIterator<Item = u16>>(iter: I) -> Self {
         let mut v = vec![0; 2];
         v.extend(iter);
-        let v_len_: u32 = (v.len() * 2 - 2) as u32;
+        let v_len_: u32 = (v.len() * 2 - 4) as u32;
         let v_len_bytes = v_len_.to_le_bytes();
         let v_0: [u8; 2] = [v_len_bytes[0], v_len_bytes[1]];
         let v_1: [u8; 2] = [v_len_bytes[2], v_len_bytes[3]];
@@ -160,5 +160,17 @@ impl AsMemoryModel for AsVec<u16> {
 pub fn generate_event<T: AsMemoryModel>(event: T) {
     unsafe {
         assembly_script_generate_event(event.as_ptr_data());
+    }
+}
+
+pub fn set_data<T: AsMemoryModel, U: AsMemoryModel>(key: T, value: U) {
+    unsafe {
+        assembly_script_set_data(key.as_ptr_data(), value.as_ptr_data());
+    }
+}
+
+pub fn get_data<T: AsMemoryModel>(key: T) -> i32 {
+    unsafe {
+        assembly_script_get_data(key.as_ptr_data())
     }
 }

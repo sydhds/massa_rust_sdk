@@ -11,3 +11,4 @@ clap = { version = "4.5.45", features = ["derive"] }
 massa_rust_web3 = { path = "../massa_rust_web3" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing = "0.1"
+bytemuck = "1.23"

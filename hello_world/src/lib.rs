@@ -5,7 +5,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 // internal
-use massa_rust_sc::{assembly_script_generate_event, string_to_as_array, to_as_array, assembly_script_get_data, assembly_script_set_data, generate_event, AsVec};
+use massa_rust_sc::{assembly_script_generate_event, string_to_as_array, to_as_array, assembly_script_get_data, assembly_script_set_data, generate_event, AsVec, set_data, get_data};
 // third-party
 use utf16_lit::utf16;
 
@@ -33,9 +33,10 @@ extern "C" fn constructor() {
     // Use generateEvent but with dynamic data (dynamic Rust string)
     let msg = format!("hello there {}!!", 42);
     unsafe {
-        // let msg_utf16 = msg.encode_utf16().collect::<AsVec<u16>>();
-        // generate_event(msg_utf16);
+        let msg_utf16 = msg.encode_utf16().collect::<AsVec<u16>>();
+        generate_event(msg_utf16);
 
+        /*
         let msg_utf16 = msg.encode_utf16().collect::<Vec<u16>>();
         let msg_utf16_slice = msg_utf16.as_slice();
         let msg_utf8: &[u8] = bytemuck::cast_slice(msg_utf16_slice);
@@ -45,11 +46,16 @@ extern "C" fn constructor() {
         msg_final[4..].copy_from_slice(msg_utf8);
         let ptr = msg_final.as_ptr().offset(4);
         assembly_script_generate_event(ptr as i32);
+        */
     }
 
     // Storage set
     {
+
         // Set our value in smart contract storage
+        set_data(KEY, VALUE);
+
+        /*
         unsafe {
             let key_ptr = KEY.as_ptr().offset(4) as i32;
             let value_ptr = VALUE.as_ptr().offset(4) as i32;
@@ -57,13 +63,14 @@ extern "C" fn constructor() {
             assembly_script_set_data(key_ptr, value_ptr);
             // assert!(has_data(key_ptr));
         }
+        */
     }
 }
 
 #[no_mangle]
 extern "C" fn hello() -> *mut u8 {
 
-
+    /*
     #[allow(clippy::let_and_return)]
     let value_ptr = unsafe {
         let key_ptr = KEY.as_ptr().offset(4); // as i32;
@@ -72,6 +79,10 @@ extern "C" fn hello() -> *mut u8 {
     };
 
     value_ptr
+    */
+
+    let ptr = get_data(KEY);
+    ptr as *mut u8
 }
 
 #[cfg_attr(not(test), panic_handler)]
