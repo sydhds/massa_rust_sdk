@@ -2,8 +2,7 @@
 
 extern crate alloc;
 // rust crates
-use alloc::vec::Vec;
-use alloc::{format, vec};
+use alloc::format;
 // internal
 use massa_rust_sc::{assembly_script_generate_event, string_to_as_array, to_as_array, assembly_script_get_data, assembly_script_set_data, generate_event, AsVec, set_data, get_data};
 // third-party
@@ -31,7 +30,7 @@ extern "C" fn constructor() {
     generate_event(EXAMPLE);
 
     // Use generateEvent but with dynamic data (dynamic Rust string)
-    let msg = format!("hello there {}!!", 42);
+    let msg = format!("hello there {}!!", 43);
     unsafe {
         let msg_utf16 = msg.encode_utf16().collect::<AsVec<u16>>();
         generate_event(msg_utf16);
@@ -68,7 +67,7 @@ extern "C" fn constructor() {
 }
 
 #[no_mangle]
-extern "C" fn hello() -> *mut u8 {
+extern "C" fn hello() -> *const u8 {
 
     /*
     #[allow(clippy::let_and_return)]
@@ -82,7 +81,7 @@ extern "C" fn hello() -> *mut u8 {
     */
 
     let ptr = get_data(KEY);
-    ptr as *mut u8
+    ptr as *const u8
 }
 
 #[cfg_attr(not(test), panic_handler)]
@@ -93,10 +92,11 @@ fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
 
 #[cfg(test)]
 mod tests {
+    use core::ops::Deref;
     use super::*;
     use core::ptr::slice_from_raw_parts;
     use core::slice;
-    use massa_rust_sc::assembly_script_has_data;
+    use massa_rust_sc::{assembly_script_has_data, AsSlice};
 
     #[test]
     #[no_mangle]
@@ -118,6 +118,7 @@ mod tests {
 
         let res_ptr = hello();
 
+        /*
         let res_size = unsafe {
             let res_size_ptr = res_ptr.offset(-4);
             let slice = slice::from_raw_parts(res_size_ptr, 4);
@@ -131,9 +132,20 @@ mod tests {
                 .as_ref()
                 .unwrap()
         };
+        */
 
-        // let expected = [104, 0, 101, 0, 108, 0, 108, 0, 119, 0];
-        let expected = bytemuck::must_cast_slice(&utf16!("hellw"));
-        assert_eq!(res_msg, expected);
+        {
+            // With AsSlice<u8>
+            let res: AsSlice<u8> = AsSlice::from(res_ptr);
+            let expected = bytemuck::must_cast_slice(&utf16!("hellw"));
+            assert_eq!(res.deref(), expected);
+        }
+
+        {
+            // With AsSlice<u16>
+            // let res: AsSlice<u16> = AsSlice::from(res_ptr);
+            let res = AsSlice::<u16>::from(res_ptr);
+            assert_eq!(res.deref(), utf16!("hellw"));
+        }
     }
 }

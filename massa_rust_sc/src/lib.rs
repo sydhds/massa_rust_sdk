@@ -15,6 +15,10 @@ static ALLOCATOR: LeakingPageAllocator = LeakingPageAllocator;
 extern crate alloc;
 use alloc::vec;
 use alloc::vec::Vec;
+use core::ops::Deref;
+use core::ptr::slice_from_raw_parts;
+use core::slice;
+use bytemuck::Pod;
 
 #[link(wasm_import_module = "massa")]
 extern "C" {
@@ -113,6 +117,7 @@ pub trait AsMemoryModel {
         }
     }
 
+    /// Get a pointer to the data as i32 value
     fn as_ptr_data(&self) -> i32 {
         self.as_ptr_data_raw() as i32
     }
@@ -120,7 +125,6 @@ pub trait AsMemoryModel {
 
 impl AsMemoryModel for &[u8] {
     fn as_ptr_header(&self) -> *const u8 {
-
         {
             // TODO: can we have this checks in the Trait? in Trait::as_ptr_data_raw?
             //       require SuperTrait like: trait AsMemoryModel: AsRef<[u8]> + AsMemoryModel {} ?
@@ -156,6 +160,90 @@ impl AsMemoryModel for AsVec<u16> {
         slice.as_ptr()
     }
 }
+
+#[derive(Debug)]
+pub struct AsSlice<'a, T>(&'a [T]);
+
+impl<T> Deref for AsSlice<'_, T> {
+    type Target = [T];
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+
+impl<'a, T: Pod> AsMemoryModel for AsSlice<'a, T> {
+    fn as_ptr_header(&self) -> *const u8 {
+        let slice: &[u8] = bytemuck::cast_slice(self.0);
+        slice.as_ptr()
+    }
+}
+
+// TODO / FIXME
+// In AsMemoryModel trait?
+// Better from_ptr_header() & from_ptr_data() ?
+// Should be try_from ? is ptr is null? can ptr be null ?
+// Restrict T to basic wasm type only? Or implement only for u8, u16 & u32 ?
+
+impl<T> From<*const u8> for AsSlice<'_, T> {
+    fn from(ptr: *const u8) -> Self {
+
+        let res_size = unsafe {
+            let res_size_ptr = ptr.offset(-4);
+            let slice = slice::from_raw_parts(res_size_ptr, 4);
+            u32::from_le_bytes(slice.try_into().unwrap())
+        };
+
+        // TODO: check res_size is a multiple of size_of<T>() ?
+        let res = unsafe {
+            slice_from_raw_parts(ptr as *const T, res_size as usize / size_of::<T>())
+                .as_ref()
+                .unwrap()
+        };
+
+        Self(res)
+    }
+}
+
+
+/*
+impl From<*const u8> for AsSlice<'_, u8> {
+    fn from(ptr: *const u8) -> Self {
+
+        let res_size = unsafe {
+            let res_size_ptr = ptr.offset(-4);
+            let slice = slice::from_raw_parts(res_size_ptr, 4);
+            u32::from_le_bytes(slice.try_into().unwrap())
+        };
+
+        let res = unsafe {
+            slice_from_raw_parts(ptr, res_size as usize)
+                .as_ref()
+                .unwrap()
+        };
+
+        Self(res)
+    }
+}
+
+impl From<*const u8> for AsSlice<'_, u16> {
+    fn from(ptr: *const u8) -> Self {
+
+        let res_size = unsafe {
+            let res_size_ptr = ptr.offset(-4);
+            let slice = slice::from_raw_parts(res_size_ptr, 4);
+            u32::from_le_bytes(slice.try_into().unwrap())
+        };
+
+        let res = unsafe {
+            slice_from_raw_parts(ptr as *const u16, res_size as usize / 2)
+                .as_ref()
+                .unwrap()
+        };
+
+        Self(res)
+    }
+}
+*/
 
 pub fn generate_event<T: AsMemoryModel>(event: T) {
     unsafe {
