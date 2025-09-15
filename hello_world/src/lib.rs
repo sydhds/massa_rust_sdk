@@ -77,7 +77,7 @@ extern "C" fn hello() -> *const u8 {
         value_ptr as *mut u8
     };
 
-    value_ptr
+    value_pt²r
     */
 
     let ptr = get_data(KEY);
@@ -96,7 +96,7 @@ mod tests {
     use super::*;
     use core::ptr::slice_from_raw_parts;
     use core::slice;
-    use massa_rust_sc::{assembly_script_has_data, AsSlice};
+    use massa_rust_sc::{assembly_script_has_data, has_data, AsSlice};
 
     #[test]
     #[no_mangle]
@@ -106,6 +106,7 @@ mod tests {
         const T_KEY: &[u8] = string_to_as_array!("greeting_key");
         const T_VALUE: &[u8] = string_to_as_array!("hellw");
 
+        /*
         unsafe {
             let key_ptr = T_KEY.as_ptr().offset(4) as i32;
             let value_ptr = T_VALUE.as_ptr().offset(4) as i32;
@@ -113,6 +114,11 @@ mod tests {
             assembly_script_set_data(key_ptr, value_ptr);
             assert!(assembly_script_has_data(key_ptr));
         }
+        */
+
+        generate_event(T_VALUE);
+        set_data(T_KEY, T_VALUE);
+        assert!(has_data(T_KEY));
 
         // Now call hello()
 

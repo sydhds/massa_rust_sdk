@@ -135,6 +135,7 @@ impl AsMemoryModel for &[u8] {
 
         self.as_ptr()
     }
+
 }
 
 pub struct AsVec<T>(Vec<T>);
@@ -181,31 +182,7 @@ impl<'a, T: Pod> AsMemoryModel for AsSlice<'a, T> {
 // TODO / FIXME
 // In AsMemoryModel trait?
 // Better from_ptr_header() & from_ptr_data() ?
-// Should be try_from ? is ptr is null? can ptr be null ?
-// Restrict T to basic wasm type only? Or implement only for u8, u16 & u32 ?
-
-impl<T> From<*const u8> for AsSlice<'_, T> {
-    fn from(ptr: *const u8) -> Self {
-
-        let res_size = unsafe {
-            let res_size_ptr = ptr.offset(-4);
-            let slice = slice::from_raw_parts(res_size_ptr, 4);
-            u32::from_le_bytes(slice.try_into().unwrap())
-        };
-
-        // TODO: check res_size is a multiple of size_of<T>() ?
-        let res = unsafe {
-            slice_from_raw_parts(ptr as *const T, res_size as usize / size_of::<T>())
-                .as_ref()
-                .unwrap()
-        };
-
-        Self(res)
-    }
-}
-
-
-/*
+// Should be try_from ? if ptr is (can be) NULL?
 impl From<*const u8> for AsSlice<'_, u8> {
     fn from(ptr: *const u8) -> Self {
 
@@ -225,6 +202,7 @@ impl From<*const u8> for AsSlice<'_, u8> {
     }
 }
 
+
 impl From<*const u8> for AsSlice<'_, u16> {
     fn from(ptr: *const u8) -> Self {
 
@@ -243,7 +221,6 @@ impl From<*const u8> for AsSlice<'_, u16> {
         Self(res)
     }
 }
-*/
 
 pub fn generate_event<T: AsMemoryModel>(event: T) {
     unsafe {
@@ -260,5 +237,11 @@ pub fn set_data<T: AsMemoryModel, U: AsMemoryModel>(key: T, value: U) {
 pub fn get_data<T: AsMemoryModel>(key: T) -> i32 {
     unsafe {
         assembly_script_get_data(key.as_ptr_data())
+    }
+}
+
+pub fn has_data<T: AsMemoryModel>(key: T) -> bool {
+    unsafe {
+        assembly_script_has_data(key.as_ptr_data())
     }
 }
