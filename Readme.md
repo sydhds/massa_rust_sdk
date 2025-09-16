@@ -98,3 +98,16 @@ Please also leave [a star](https://github.com/sydhds/massa_rust_sdk) on GitHub i
   * BTC (network: BITCOIN): 1Gtq8FDSqw4VWxEhFDkMkfdGDa6sxJiaqf
   * Ethereum (+ USDT/ERC20, network: Ethereum): 0xa9d24971ee2ece918a4e5ed930da33e71a901bf9
   * Massa: AU1NGhiqutBytHdUE38bGeNYh9XnCzCCWdcvM6aTimceebKvJhpG
+
+## Sdk developers
+
+This section is for developers that want to hack on the massa rust sdk code itself.
+
+## massa_rust_sdk
+
+* RUSTFLAGS="-Ctarget-cpu=mvp -Ctarget-feature=+bulk-memory" cargo +nightly test -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown -p massa_rust_sdk
+
+## massa_rust_web3
+
+* cargo test -p massa_rust_web3
+
