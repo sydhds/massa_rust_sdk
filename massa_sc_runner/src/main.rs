@@ -66,7 +66,7 @@ fn main() {
             exec_limits.clone(),
         );
 
-        println!("wasm vm res: {res:?}");
+        println!("wasm vm res: {res:#?}");
     }
 }
 

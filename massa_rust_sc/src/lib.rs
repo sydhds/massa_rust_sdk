@@ -140,6 +140,47 @@ impl AsMemoryModel for &[u8] {
 
 pub struct AsVec<T>(Vec<T>);
 
+impl<T: Pod> AsVec<T> {
+
+    fn len(&self) -> usize {
+        let header_size = <Self as AsMemoryModel>::HEADER_SIZE;
+        self.0.len() - header_size
+    }
+
+    fn push(&mut self, item: T) {
+        // Get current length
+        let current_len: u32 = (self.0.len() - 4) as u32;
+        // + 1
+        let new_len = (current_len + 1).to_le_bytes();
+        // Cast to &[u8] so we could update the length (in a generic way)
+        let slice: &mut [u8] = bytemuck::cast_slice_mut(self.0.as_mut_slice());
+        // Update length
+        slice[0] = new_len[0];
+        slice[1] = new_len[1];
+        slice[2] = new_len[2];
+        slice[3] = new_len[3];
+        // Push new item
+        self.0.push(item);
+    }
+
+}
+
+impl FromIterator<u8> for AsVec<u8> {
+
+    fn from_iter<I: IntoIterator<Item = u8>>(iter: I) -> Self {
+        let mut v = vec![0; 2];
+        v.extend(iter);
+        let v_len_: u32 = (v.len() - 4) as u32;
+        let v_len_bytes = v_len_.to_le_bytes();
+        v[0] = v_len_bytes[0];
+        v[1] = v_len_bytes[1];
+        v[2] = v_len_bytes[2];
+        v[3] = v_len_bytes[3];
+        Self(v)
+    }
+}
+
+
 impl FromIterator<u16> for AsVec<u16> {
 
     fn from_iter<I: IntoIterator<Item = u16>>(iter: I) -> Self {
@@ -155,12 +196,27 @@ impl FromIterator<u16> for AsVec<u16> {
     }
 }
 
+impl<T: Pod> AsMemoryModel for AsVec<T> {
+    fn as_ptr_header(&self) -> *const u8 {
+        let slice: &[u8] = bytemuck::cast_slice(self.0.as_slice());
+        slice.as_ptr()
+    }
+}
+
+/*
+impl AsMemoryModel for AsVec<u8> {
+    fn as_ptr_header(&self) -> *const u8 {
+        self.0.as_ptr()
+    }
+}
+
 impl AsMemoryModel for AsVec<u16> {
     fn as_ptr_header(&self) -> *const u8 {
         let slice: &[u8] = bytemuck::cast_slice(self.0.as_slice());
         slice.as_ptr()
     }
 }
+*/
 
 #[derive(Debug)]
 pub struct AsSlice<'a, T>(&'a [T]);
@@ -244,4 +300,34 @@ pub fn has_data<T: AsMemoryModel>(key: T) -> bool {
     unsafe {
         assembly_script_has_data(key.as_ptr_data())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[no_mangle]
+    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_1() {
+
+        let v0 = vec![1u8, 2, 3];
+        assert_eq!(v0.len(), 3);
+
+        // FIXME: from_iter assumes the data is already with AS header
+        //        maybe add from_iter_as() ? but then it would break collect ?
+        let mut av0 = AsVec::from_iter(vec![1u8, 2, 3]);
+        // let mut a1 = AsVec::from_iter(vec![1u16, 2, 3]);
+
+        assert!(av0.len() > 3);
+        // assert_eq!(a1.len(), 3);
+
+        // a0.push(42);
+        // a1.push(42);
+
+        // assert_eq!(a0.len(), 4);
+        // assert_eq!(a1.len(), 4);
+    }
+
+
+
 }
