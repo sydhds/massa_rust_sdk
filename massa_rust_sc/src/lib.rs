@@ -80,6 +80,14 @@ pub const fn to_as_array<const N: usize>(v: &[u8]) -> [u8; N] {
     dst
 }
 
+pub const fn to_as_array_2<const N: usize>(v: &[u8]) -> AsArray<u8, N> {
+    let mut dst: [u8; N] = [0u8; N];
+    let (a1, a2) = dst.split_at_mut(4);
+    a1.copy_from_slice((v.len() as u32).to_le_bytes().as_slice());
+    a2.copy_from_slice(v);
+    AsArray(dst)
+}
+
 #[macro_export]
 macro_rules! string_to_as_array {
     ($key:expr) => {{
@@ -87,6 +95,16 @@ macro_rules! string_to_as_array {
         const K_U8__: &[u8] = bytemuck::must_cast_slice(K__);
         const N__: usize = K_U8__.len();
         to_as_array::<{N__ + 4}>(K_U8__).as_slice()
+    }};
+}
+
+#[macro_export]
+macro_rules! string_to_as_array_2 {
+    ($key:expr) => {{
+        const K__: &[u16] = &utf16!($key);
+        const K_U8__: &[u8] = bytemuck::must_cast_slice(K__);
+        const N__: usize = K_U8__.len();
+        to_as_array_2::<{N__ + 4}>(K_U8__).to_as_slice()
     }};
 }
 
@@ -123,6 +141,7 @@ pub trait AsMemoryModel {
     }
 }
 
+/*
 impl AsMemoryModel for &[u8] {
     fn as_ptr_header(&self) -> *const u8 {
         {
@@ -135,7 +154,15 @@ impl AsMemoryModel for &[u8] {
 
         self.as_ptr()
     }
+}
+*/
 
+pub struct AsArray<T, const N: usize>([T; N]);
+
+impl<T, const N: usize> AsArray<T, N> {
+    pub const fn to_as_slice(&self) -> AsSlice<T> {
+        AsSlice(&self.0)
+    }
 }
 
 pub struct AsVec<T>(Vec<T>);
@@ -143,15 +170,26 @@ pub struct AsVec<T>(Vec<T>);
 impl<T: Pod> AsVec<T> {
 
     fn len(&self) -> usize {
-        let header_size = <Self as AsMemoryModel>::HEADER_SIZE;
-        self.0.len() - header_size
+        // let header_size = <Self as AsMemoryModel>::HEADER_SIZE;
+        // self.0.len() - header_size
+        self.0.len() - (Self::__header_size() / size_of::<T>())
+    }
+
+    /*
+    fn __byte_len(&self) -> usize {
+        self.0.len() * size_of::<T>()
+    }
+    */
+
+    fn __header_size() -> usize {
+        <Self as AsMemoryModel>::HEADER_SIZE
     }
 
     fn push(&mut self, item: T) {
         // Get current length
-        let current_len: u32 = (self.0.len() - 4) as u32;
-        // + 1
-        let new_len = (current_len + 1).to_le_bytes();
+        // let current_len: u32 = (self.0.len() - 4) as u32;
+        // current length + 1
+        let new_len = (self.len() + 1).to_le_bytes();
         // Cast to &[u8] so we could update the length (in a generic way)
         let slice: &mut [u8] = bytemuck::cast_slice_mut(self.0.as_mut_slice());
         // Update length
@@ -168,7 +206,7 @@ impl<T: Pod> AsVec<T> {
 impl FromIterator<u8> for AsVec<u8> {
 
     fn from_iter<I: IntoIterator<Item = u8>>(iter: I) -> Self {
-        let mut v = vec![0; 2];
+        let mut v = vec![0; 4];
         v.extend(iter);
         let v_len_: u32 = (v.len() - 4) as u32;
         let v_len_bytes = v_len_.to_le_bytes();
@@ -312,20 +350,23 @@ mod tests {
 
         let v0 = vec![1u8, 2, 3];
         assert_eq!(v0.len(), 3);
-
-        // FIXME: from_iter assumes the data is already with AS header
-        //        maybe add from_iter_as() ? but then it would break collect ?
         let mut av0 = AsVec::from_iter(vec![1u8, 2, 3]);
-        // let mut a1 = AsVec::from_iter(vec![1u16, 2, 3]);
+        assert_eq!(av0.len(), 3);
 
-        assert!(av0.len() > 3);
-        // assert_eq!(a1.len(), 3);
+        av0.push(42);
+        assert_eq!(av0.len(), 4);
 
-        // a0.push(42);
-        // a1.push(42);
+        let mut av1 = AsVec::from_iter(vec![1u16, 2, 3]);
+        assert_eq!(av1.len(), 3);
 
-        // assert_eq!(a0.len(), 4);
-        // assert_eq!(a1.len(), 4);
+        av1.push(42);
+        av1.push(42);
+        assert_eq!(av1.len(), 5);
+
+        let mut av_0: AsVec<u16> = AsVec::from_iter(vec![]);
+        assert_eq!(av_0.len(), 0);
+        let mut av_0: AsVec<u8> = AsVec::from_iter(vec![]);
+        assert_eq!(av_0.len(), 0);
     }
 
 

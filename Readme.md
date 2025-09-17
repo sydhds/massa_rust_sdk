@@ -105,7 +105,7 @@ This section is for developers that want to hack on the massa rust sdk code itse
 
 ## massa_rust_sdk
 
-* RUSTFLAGS="-Ctarget-cpu=mvp -Ctarget-feature=+bulk-memory" cargo +nightly test -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown -p massa_rust_sdk
+* RUSTFLAGS="-Ctarget-cpu=mvp -Ctarget-feature=+bulk-memory" cargo +nightly test -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown -p massa_rust_sc
 
 ## massa_rust_web3
 

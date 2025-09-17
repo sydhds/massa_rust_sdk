@@ -4,15 +4,15 @@ extern crate alloc;
 // rust crates
 use alloc::format;
 // internal
-use massa_rust_sc::{assembly_script_generate_event, string_to_as_array, to_as_array, assembly_script_get_data, assembly_script_set_data, generate_event, AsVec, set_data, get_data};
+use massa_rust_sc::{assembly_script_generate_event, string_to_as_array, to_as_array, assembly_script_get_data, assembly_script_set_data, generate_event, AsVec, set_data, get_data, AsArray, string_to_as_array_2, to_as_array_2, AsSlice};
 // third-party
 use utf16_lit::utf16;
 
 // constants
 
-const EXAMPLE: &[u8] = string_to_as_array!("massa_rust_sdk");
-const KEY: &[u8] = string_to_as_array!("greeting_key");
-const VALUE: &[u8] = string_to_as_array!("hello");
+const EXAMPLE: AsSlice<u8> = string_to_as_array_2!("massa_rust_sdk");
+const KEY: AsSlice<u8> = string_to_as_array_2!("greeting_key");
+const VALUE: AsSlice<u8> = string_to_as_array_2!("hello");
 
 // end constants
 
@@ -30,7 +30,7 @@ extern "C" fn constructor() {
     generate_event(EXAMPLE);
 
     // Use generateEvent but with dynamic data (dynamic Rust string)
-    let msg = format!("hello there {}!!", 43);
+    let msg = format!("hello there {}!!", 23);
     unsafe {
         let msg_utf16 = msg.encode_utf16().collect::<AsVec<u16>>();
         generate_event(msg_utf16);
@@ -103,8 +103,8 @@ mod tests {
     fn __MASSA_RUST_SDK_UNIT_TEST_hello_1() {
 
         // Storage set (before calling hello())
-        const T_KEY: &[u8] = string_to_as_array!("greeting_key");
-        const T_VALUE: &[u8] = string_to_as_array!("hellw");
+        const T_KEY: AsSlice<u8> = string_to_as_array_2!("greeting_key");
+        const T_VALUE: AsSlice<u8> = string_to_as_array_2!("hellw");
 
         /*
         unsafe {
