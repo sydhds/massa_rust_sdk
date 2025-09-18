@@ -72,6 +72,7 @@ extern "C" fn __new(size: usize, _id: i32) -> *mut u8 {
     }
 }
 
+/*
 pub const fn to_as_array<const N: usize>(v: &[u8]) -> [u8; N] {
     let mut dst: [u8; N] = [0u8; N];
     let (a1, a2) = dst.split_at_mut(4);
@@ -80,7 +81,18 @@ pub const fn to_as_array<const N: usize>(v: &[u8]) -> [u8; N] {
     dst
 }
 
-pub const fn to_as_array_2<const N: usize>(v: &[u8]) -> AsArray<u8, N> {
+#[macro_export]
+macro_rules! string_to_as_array {
+    ($key:expr) => {{
+        const K__: &[u16] = &utf16!($key);
+        const K_U8__: &[u8] = bytemuck::must_cast_slice(K__);
+        const N__: usize = K_U8__.len();
+        to_as_array::<{N__ + 4}>(K_U8__).as_slice()
+    }};
+}
+*/
+
+pub const fn to_as_array<const N: usize>(v: &[u8]) -> AsArray<u8, N> {
     let mut dst: [u8; N] = [0u8; N];
     let (a1, a2) = dst.split_at_mut(4);
     a1.copy_from_slice((v.len() as u32).to_le_bytes().as_slice());
@@ -95,16 +107,6 @@ macro_rules! string_to_as_array {
         const K_U8__: &[u8] = bytemuck::must_cast_slice(K__);
         const N__: usize = K_U8__.len();
         to_as_array::<{N__ + 4}>(K_U8__).as_slice()
-    }};
-}
-
-#[macro_export]
-macro_rules! string_to_as_array_2 {
-    ($key:expr) => {{
-        const K__: &[u16] = &utf16!($key);
-        const K_U8__: &[u8] = bytemuck::must_cast_slice(K__);
-        const N__: usize = K_U8__.len();
-        to_as_array_2::<{N__ + 4}>(K_U8__).to_as_slice()
     }};
 }
 
@@ -160,9 +162,14 @@ impl AsMemoryModel for &[u8] {
 pub struct AsArray<T, const N: usize>([T; N]);
 
 impl<T, const N: usize> AsArray<T, N> {
-    pub const fn to_as_slice(&self) -> AsSlice<T> {
+    pub const fn as_slice(&self) -> AsSlice<T> {
         AsSlice(&self.0)
     }
+}
+
+enum UpdateLength {
+    Offset(isize),
+    Length(usize),
 }
 
 pub struct AsVec<T>(Vec<T>);
@@ -185,11 +192,12 @@ impl<T: Pod> AsVec<T> {
         <Self as AsMemoryModel>::HEADER_SIZE
     }
 
-    fn push(&mut self, item: T) {
-        // Get current length
-        // let current_len: u32 = (self.0.len() - 4) as u32;
+    fn __update_as_header(&mut self, l: UpdateLength) {
         // current length + 1
-        let new_len = (self.len() + 1).to_le_bytes();
+        let new_len =  match l {
+            UpdateLength::Offset(offset) => self.len() + offset as usize,
+            UpdateLength::Length(nl) => nl,
+        }.to_le_bytes();
         // Cast to &[u8] so we could update the length (in a generic way)
         let slice: &mut [u8] = bytemuck::cast_slice_mut(self.0.as_mut_slice());
         // Update length
@@ -197,10 +205,27 @@ impl<T: Pod> AsVec<T> {
         slice[1] = new_len[1];
         slice[2] = new_len[2];
         slice[3] = new_len[3];
+    }
+
+    pub fn append(&mut self, other: &mut Self) {
+        self.__update_as_header(UpdateLength::Offset(other.len() as isize));
+        self.0.append(&mut other.0);
+        other.__update_as_header(UpdateLength::Length(0));
+    }
+
+    pub fn push(&mut self, item: T) {
+        self.__update_as_header(UpdateLength::Offset(1));
         // Push new item
         self.0.push(item);
     }
 
+    pub fn pop(&mut self) -> Option<T> {
+        let res = self.0.pop();
+        if res.is_some() {
+            self.__update_as_header(UpdateLength::Offset(-1));
+        }
+        res
+    }
 }
 
 impl FromIterator<u8> for AsVec<u8> {
@@ -344,9 +369,24 @@ pub fn has_data<T: AsMemoryModel>(key: T) -> bool {
 mod tests {
     use super::*;
 
+
+
     #[test]
     #[no_mangle]
-    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_1() {
+    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_append() {
+
+        let mut v0 = vec![1u8, 2, 3];
+        let mut v1 = vec![255u8];
+        let expected_len = v0.len() + v1.len();
+
+        v1.append(&mut v0);
+        assert_eq!(v1.len(), expected_len);
+        assert_eq!(v0.len(), 0);
+    }
+
+    #[test]
+    #[no_mangle]
+    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_push() {
 
         let v0 = vec![1u8, 2, 3];
         assert_eq!(v0.len(), 3);
@@ -368,7 +408,5 @@ mod tests {
         let mut av_0: AsVec<u8> = AsVec::from_iter(vec![]);
         assert_eq!(av_0.len(), 0);
     }
-
-
 
 }
