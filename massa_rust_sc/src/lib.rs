@@ -8,14 +8,17 @@
 // https://github.com/rust-lang/rust/issues/128475
 // https://github.com/rust-lang/rust/pull/128511
 
-use lol_alloc::LeakingPageAllocator;
+use lol_alloc::{
+    LeakingPageAllocator,
+};
 #[global_allocator]
 static ALLOCATOR: LeakingPageAllocator = LeakingPageAllocator;
 
 extern crate alloc;
 use alloc::vec;
-use alloc::vec::Vec;
-use core::ops::Deref;
+use alloc::vec::{Drain, Vec};
+use core::alloc::GlobalAlloc;
+use core::ops::{Deref, DerefMut, RangeBounds};
 use core::ptr::slice_from_raw_parts;
 use core::slice;
 use bytemuck::Pod;
@@ -128,6 +131,7 @@ pub trait AsMemoryModel {
     /// header|data
     /// header: 4 bytes (size of the data as u32) -> N
     /// data: N bytes
+    /// See https://www.assemblyscript.org/runtime.html#memory-layout
     fn as_ptr_header(&self) -> *const u8;
 
     /// Get a pointer to the data
@@ -172,11 +176,33 @@ enum UpdateLength {
     Length(usize),
 }
 
+pub struct AsVecDrain<'a, T> {
+    inner: Drain<'a, T>,
+    // len: usize,
+}
+
+impl<T> Iterator for AsVecDrain<'_, T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+    }
+}
+
+/*
+impl<'a, T> FromIterator<T> for AsVecDrain<'a, T> {
+    fn from_iter<U: IntoIterator<Item=T>>(iter: U) -> Self {
+        todo!()
+    }
+}
+*/
+
+#[derive(Debug)]
 pub struct AsVec<T>(Vec<T>);
 
 impl<T: Pod> AsVec<T> {
 
-    fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         // let header_size = <Self as AsMemoryModel>::HEADER_SIZE;
         // self.0.len() - header_size
         self.0.len() - (Self::__header_size() / size_of::<T>())
@@ -188,15 +214,19 @@ impl<T: Pod> AsVec<T> {
     }
     */
 
-    fn __header_size() -> usize {
+    const fn __header_size() -> usize {
         <Self as AsMemoryModel>::HEADER_SIZE
     }
 
     fn __update_as_header(&mut self, l: UpdateLength) {
         // current length + 1
         let new_len =  match l {
-            UpdateLength::Offset(offset) => self.len() + offset as usize,
-            UpdateLength::Length(nl) => nl,
+            UpdateLength::Offset(offset) => {
+                self.len() + offset as usize
+            },
+            UpdateLength::Length(nl) => {
+                nl
+            },
         }.to_le_bytes();
         // Cast to &[u8] so we could update the length (in a generic way)
         let slice: &mut [u8] = bytemuck::cast_slice_mut(self.0.as_mut_slice());
@@ -207,10 +237,45 @@ impl<T: Pod> AsVec<T> {
         slice[3] = new_len[3];
     }
 
+    fn __as_raw_slice(&self) -> &[T] {
+        self.0.as_slice()
+    }
+
     pub fn append(&mut self, other: &mut Self) {
         self.__update_as_header(UpdateLength::Offset(other.len() as isize));
-        self.0.append(&mut other.0);
-        other.__update_as_header(UpdateLength::Length(0));
+        self.0.extend(&other.0[4..]);
+        other.clear();
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.0.capacity()
+    }
+
+    pub fn clear(&mut self) {
+        self.__update_as_header(UpdateLength::Length(0));
+        self.0.drain(4..);
+    }
+
+    pub fn drain<R>(&mut self, range: R) -> AsVecDrain<'_, T> where R: RangeBounds<usize> {
+        // FIXME: Need to implement Iterator on AsVecDrain
+        //        but also implement the update header there
+        AsVecDrain {
+            inner: self.0.drain(range),
+        }
+    }
+
+    pub fn extend_from_slice(&mut self, other: &[T]) {
+        self.__update_as_header(UpdateLength::Offset(other.len() as isize));
+        self.0.extend_from_slice(other);
+    }
+
+    pub fn insert(&mut self, index: usize, element: T) {
+        self.__update_as_header(UpdateLength::Offset(1));
+        self.0.insert((Self::__header_size() / size_of::<T>()) + index, element);
+    }
+
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn push(&mut self, item: T) {
@@ -225,6 +290,13 @@ impl<T: Pod> AsVec<T> {
             self.__update_as_header(UpdateLength::Offset(-1));
         }
         res
+    }
+}
+
+impl<T: Pod + PartialEq> AsVec<T> {
+
+    pub fn dedup(&mut self) {
+        todo!()
     }
 }
 
@@ -367,6 +439,7 @@ pub fn has_data<T: AsMemoryModel>(key: T) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use alloc::format;
     use super::*;
 
 
@@ -375,10 +448,9 @@ mod tests {
     #[no_mangle]
     fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_append() {
 
-        let mut v0 = vec![1u8, 2, 3];
-        let mut v1 = vec![255u8];
+        let mut v0 = AsVec::from_iter(vec![1u8, 2, 3]);
+        let mut v1 = AsVec::from_iter(vec![255u8]);
         let expected_len = v0.len() + v1.len();
-
         v1.append(&mut v0);
         assert_eq!(v1.len(), expected_len);
         assert_eq!(v0.len(), 0);
@@ -407,6 +479,46 @@ mod tests {
         assert_eq!(av_0.len(), 0);
         let mut av_0: AsVec<u8> = AsVec::from_iter(vec![]);
         assert_eq!(av_0.len(), 0);
+    }
+
+    #[test]
+    #[no_mangle]
+    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_clear() {
+
+        let mut v = AsVec::from_iter(vec![1u8, 2, 3]);
+
+        assert_eq!(v.len(), 3);
+        let msg = format!("v len: {}", v.len());
+        generate_event( msg.encode_utf16().collect::<AsVec<u16>>());
+        let msg = format!("v: {:?}", v.__as_raw_slice());
+        generate_event( msg.encode_utf16().collect::<AsVec<u16>>());
+        v.clear();
+        let msg = format!("v: {:?}", v.__as_raw_slice());
+        generate_event( msg.encode_utf16().collect::<AsVec<u16>>());
+        assert_eq!(v.len(), 0);
+        assert!(v.is_empty());
+
+        v.push(42);
+        assert_eq!(v.len(), 1);
+    }
+
+    #[test]
+    #[no_mangle]
+    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_drain() {
+
+        let mut v = AsVec(vec![1u16, 2, 3]);
+        let u: Vec<_> = v
+            .drain(1..)
+            .collect();
+        assert_eq!(v.len(), 1);
+        assert_eq!(u.len(), 3);
+        // assert_eq!(v, &[1]);
+        // assert_eq!(u, &[2, 3]);
+
+        // A full range clears the vector, like `clear()` does
+        v.drain(..);
+        // assert_eq!(v, &[]);
+        assert_eq!(v.len(), 0);
     }
 
 }
