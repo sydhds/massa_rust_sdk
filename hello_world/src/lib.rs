@@ -2,20 +2,25 @@
 
 extern crate alloc;
 // rust crates
-use alloc::vec::Vec;
-use alloc::{format, vec};
+use alloc::format;
 // internal
-use massa_rust_sc::{generateEvent, string_to_as_array, to_as_array, get_data, set_data,
-                    //has_data
+use massa_rust_sc::{
+    assembly_script_generate_event, 
+    string_to_as_array, to_as_array, 
+    assembly_script_get_data, assembly_script_set_data, 
+    generate_event, AsVec, set_data, get_data, 
+    AsArray, 
+    // string_to_as_array_2, to_as_array_2, 
+    AsSlice
 };
 // third-party
 use utf16_lit::utf16;
 
 // constants
 
-const EXAMPLE: &[u8] = string_to_as_array!("massa_rust_sdk");
-const KEY: &[u8] = string_to_as_array!("greeting_key");
-const VALUE: &[u8] = string_to_as_array!("hello");
+const EXAMPLE: AsSlice<u8> = string_to_as_array!("massa_rust_sdk");
+const KEY: AsSlice<u8> = string_to_as_array!("greeting_key");
+const VALUE: AsSlice<u8> = string_to_as_array!("hello");
 
 // end constants
 
@@ -24,14 +29,23 @@ extern "C" fn constructor() {
 
     // Use generateEvent
     // Note: generateEvent requires an UTF16 encoded string as input
+    /*
     unsafe {
         let ptr = EXAMPLE.as_ptr().offset(4);
-        generateEvent(ptr as i32);
+        assembly_script_generate_event(ptr as i32);
     }
+    */
+    generate_event(EXAMPLE);
 
     // Use generateEvent but with dynamic data (dynamic Rust string)
-    let msg = format!("hello there {}!!", 42);
+    let msg = format!("hello there {}!!", 23);
     unsafe {
+        let mut msg_utf16 = msg
+            .encode_utf16()
+            .collect::<AsVec<u16>>();
+        generate_event(msg_utf16);
+
+        /*
         let msg_utf16 = msg.encode_utf16().collect::<Vec<u16>>();
         let msg_utf16_slice = msg_utf16.as_slice();
         let msg_utf8: &[u8] = bytemuck::cast_slice(msg_utf16_slice);
@@ -40,34 +54,44 @@ extern "C" fn constructor() {
         msg_final[0..4].copy_from_slice(msg_utf8.len().to_le_bytes().as_slice());
         msg_final[4..].copy_from_slice(msg_utf8);
         let ptr = msg_final.as_ptr().offset(4);
-        generateEvent(ptr as i32);
+        assembly_script_generate_event(ptr as i32);
+        */
     }
 
     // Storage set
     {
+
         // Set our value in smart contract storage
+        set_data(KEY, VALUE);
+
+        /*
         unsafe {
             let key_ptr = KEY.as_ptr().offset(4) as i32;
             let value_ptr = VALUE.as_ptr().offset(4) as i32;
             // generateEvent(value_ptr);
-            set_data(key_ptr, value_ptr);
+            assembly_script_set_data(key_ptr, value_ptr);
             // assert!(has_data(key_ptr));
         }
+        */
     }
 }
 
 #[no_mangle]
-extern "C" fn hello() -> *mut u8 {
+extern "C" fn hello() -> *const u8 {
 
-
+    /*
     #[allow(clippy::let_and_return)]
     let value_ptr = unsafe {
         let key_ptr = KEY.as_ptr().offset(4); // as i32;
-        let value_ptr = get_data(key_ptr as i32);
+        let value_ptr = assembly_script_get_data(key_ptr as i32);
         value_ptr as *mut u8
     };
 
-    value_ptr
+    value_pt²r
+    */
+
+    let ptr = get_data(KEY);
+    ptr as *const u8
 }
 
 #[cfg_attr(not(test), panic_handler)]
@@ -78,31 +102,39 @@ fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
 
 #[cfg(test)]
 mod tests {
+    use core::ops::Deref;
     use super::*;
     use core::ptr::slice_from_raw_parts;
     use core::slice;
-    use massa_rust_sc::has_data;
+    use massa_rust_sc::{assembly_script_has_data, has_data, AsSlice};
 
     #[test]
     #[no_mangle]
     fn __MASSA_RUST_SDK_UNIT_TEST_hello_1() {
 
         // Storage set (before calling hello())
-        const T_KEY: &[u8] = string_to_as_array!("greeting_key");
-        const T_VALUE: &[u8] = string_to_as_array!("hellw");
+        const T_KEY: AsSlice<u8> = string_to_as_array!("greeting_key");
+        const T_VALUE: AsSlice<u8> = string_to_as_array!("hellw");
 
+        /*
         unsafe {
             let key_ptr = T_KEY.as_ptr().offset(4) as i32;
             let value_ptr = T_VALUE.as_ptr().offset(4) as i32;
-            generateEvent(value_ptr);
-            set_data(key_ptr, value_ptr);
-            assert!(has_data(key_ptr));
+            assembly_script_generate_event(value_ptr);
+            assembly_script_set_data(key_ptr, value_ptr);
+            assert!(assembly_script_has_data(key_ptr));
         }
+        */
+
+        generate_event(T_VALUE);
+        set_data(T_KEY, T_VALUE);
+        assert!(has_data(T_KEY));
 
         // Now call hello()
 
         let res_ptr = hello();
 
+        /*
         let res_size = unsafe {
             let res_size_ptr = res_ptr.offset(-4);
             let slice = slice::from_raw_parts(res_size_ptr, 4);
@@ -116,9 +148,20 @@ mod tests {
                 .as_ref()
                 .unwrap()
         };
+        */
 
-        // let expected = [104, 0, 101, 0, 108, 0, 108, 0, 119, 0];
-        let expected = bytemuck::must_cast_slice(&utf16!("hellw"));
-        assert_eq!(res_msg, expected);
+        {
+            // With AsSlice<u8>
+            let res: AsSlice<u8> = AsSlice::from(res_ptr);
+            let expected = bytemuck::must_cast_slice(&utf16!("hellw"));
+            assert_eq!(res.deref(), expected);
+        }
+
+        {
+            // With AsSlice<u16>
+            // let res: AsSlice<u16> = AsSlice::from(res_ptr);
+            let res = AsSlice::<u16>::from(res_ptr);
+            assert_eq!(res.deref(), utf16!("hellw"));
+        }
     }
 }
