@@ -15,7 +15,7 @@ use lol_alloc::{
 static ALLOCATOR: LeakingPageAllocator = LeakingPageAllocator;
 
 extern crate alloc;
-use alloc::vec;
+use alloc::{format, vec};
 use alloc::vec::{Drain, Vec};
 use core::alloc::GlobalAlloc;
 use core::ops::{Deref, DerefMut, RangeBounds};
@@ -171,8 +171,10 @@ impl<T, const N: usize> AsArray<T, N> {
     }
 }
 
+#[derive(Debug)]
 enum UpdateLength {
-    Offset(isize),
+    Offset(usize),
+    NegativeOffset(usize),
     Length(usize),
 }
 
@@ -222,12 +224,21 @@ impl<T: Pod> AsVec<T> {
         // current length + 1
         let new_len =  match l {
             UpdateLength::Offset(offset) => {
-                self.len() + offset as usize
+                self.len() + offset
+            },
+            UpdateLength::NegativeOffset(offset) => {
+                self.len() - offset
             },
             UpdateLength::Length(nl) => {
                 nl
             },
         }.to_le_bytes();
+
+        // let msg = format!("len: {:?} - offset: {:?}", self.len(), l);
+        // generate_event( msg.encode_utf16().collect::<AsVec<u16>>());
+        // let msg = format!("new_len: {:?}", new_len);
+        // generate_event( msg.encode_utf16().collect::<AsVec<u16>>());
+
         // Cast to &[u8] so we could update the length (in a generic way)
         let slice: &mut [u8] = bytemuck::cast_slice_mut(self.0.as_mut_slice());
         // Update length
@@ -242,7 +253,7 @@ impl<T: Pod> AsVec<T> {
     }
 
     pub fn append(&mut self, other: &mut Self) {
-        self.__update_as_header(UpdateLength::Offset(other.len() as isize));
+        self.__update_as_header(UpdateLength::Offset(other.len()));
         self.0.extend(&other.0[4..]);
         other.clear();
     }
@@ -265,7 +276,7 @@ impl<T: Pod> AsVec<T> {
     }
 
     pub fn extend_from_slice(&mut self, other: &[T]) {
-        self.__update_as_header(UpdateLength::Offset(other.len() as isize));
+        self.__update_as_header(UpdateLength::Offset(other.len()));
         self.0.extend_from_slice(other);
     }
 
@@ -285,9 +296,14 @@ impl<T: Pod> AsVec<T> {
     }
 
     pub fn pop(&mut self) -> Option<T> {
+
+        let inner_len = self.len();
+        if inner_len == 0 {
+            return None;
+        }
         let res = self.0.pop();
         if res.is_some() {
-            self.__update_as_header(UpdateLength::Offset(-1));
+            self.__update_as_header(UpdateLength::Length(inner_len - 1));
         }
         res
     }
@@ -479,6 +495,33 @@ mod tests {
         assert_eq!(av_0.len(), 0);
         let mut av_0: AsVec<u8> = AsVec::from_iter(vec![]);
         assert_eq!(av_0.len(), 0);
+    }
+
+    #[test]
+    #[no_mangle]
+    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_insert() {
+        let mut v = AsVec::from_iter(vec![1u8, 255]);
+        assert_eq!(v.len(), 2);
+        v.insert(1, 42);
+        assert_eq!(v.len(), 3);
+        assert_eq!(&v.__as_raw_slice()[4..], &[1, 42, 255]);
+        v.insert(3, 41);
+        assert_eq!(v.len(), 4);
+        assert_eq!(&v.__as_raw_slice()[4..], &[1, 42, 255, 41]);
+        v.insert(0, 40);
+        assert_eq!(v.len(), 5);
+        assert_eq!(&v.__as_raw_slice()[4..], &[40, 1, 42, 255, 41]);
+    }
+
+    #[test]
+    #[no_mangle]
+    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_pop() {
+        let mut v = AsVec::from_iter(vec![1u8, 255]);
+        assert_eq!(v.len(), 2);
+        assert_eq!(v.pop(), Some(255));
+        assert_eq!(v.pop(), Some(1));
+        assert_eq!(v.pop(), None);
+        assert_eq!(v.len(), 0);
     }
 
     #[test]
