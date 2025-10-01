@@ -1,4 +1,5 @@
 #![no_std]
+#![feature(vec_into_raw_parts)]
 
 // Massa blockchain only accept Wasm without the reference-types and multivalue features
 // According to this blog post: https://blog.rust-lang.org/2024/09/24/webassembly-targets-change-in-default-target-features/
@@ -8,12 +9,23 @@
 // https://github.com/rust-lang/rust/issues/128475
 // https://github.com/rust-lang/rust/pull/128511
 
-use lol_alloc::LeakingPageAllocator;
+mod as_vec;
+mod memory;
+mod as_slice;
+
+use lol_alloc::{
+    LeakingPageAllocator,
+};
 #[global_allocator]
 static ALLOCATOR: LeakingPageAllocator = LeakingPageAllocator;
 
 extern crate alloc;
 use alloc::vec;
+use crate::memory::AsMemoryModel;
+
+// export
+pub use as_vec::AsVec;
+pub use as_slice::{AsSlice, AsArray, to_as_array};
 
 #[link(wasm_import_module = "massa")]
 extern "C" {
@@ -24,14 +36,14 @@ extern "C" {
     ///
     /// * event: a pointer to an utf-16 string (prefixed with array size, see [string_to_as_array!](string_to_as_array!))
     #[link_name = "assembly_script_generate_event"]
-    pub fn generateEvent(event: i32) -> ();
+    pub fn assembly_script_generate_event(event: i32) -> ();
 
     /// Store a value in smart contract storage
     ///
     /// * key: a pointer to a byte slice (prefixed with array size)
     /// * value: a pointer to a byte slice (prefixed with array size)
     #[link_name = "assembly_script_set_data"]
-    pub fn set_data(key: i32, value: i32) -> ();
+    pub fn assembly_script_set_data(key: i32, value: i32) -> ();
 
     /// Get a value stored in smart contract storage
     ///
@@ -39,7 +51,7 @@ extern "C" {
     ///
     /// Return: a pointer to a byte slice (prefixed with array size)
     #[link_name = "assembly_script_get_data"]
-    pub fn get_data(key: i32) -> i32;
+    pub fn assembly_script_get_data(key: i32) -> i32;
 
     /// Check if a value is stored in smart contract storage
     ///
@@ -47,7 +59,7 @@ extern "C" {
     ///
     /// Return: a boolean value
     #[link_name = "assembly_script_has_data"]
-    pub fn has_data(key: i32) -> bool;
+    pub fn assembly_script_has_data(key: i32) -> bool;
 }
 
 #[no_mangle]
@@ -67,6 +79,7 @@ extern "C" fn __new(size: usize, _id: i32) -> *mut u8 {
     }
 }
 
+/*
 pub const fn to_as_array<const N: usize>(v: &[u8]) -> [u8; N] {
     let mut dst: [u8; N] = [0u8; N];
     let (a1, a2) = dst.split_at_mut(4);
@@ -84,6 +97,8 @@ macro_rules! string_to_as_array {
         to_as_array::<{N__ + 4}>(K_U8__).as_slice()
     }};
 }
+*/
+
 
 /*
 #[panic_handler]
@@ -92,3 +107,32 @@ fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
     core::arch::wasm32::unreachable()
 }
 */
+
+
+
+
+
+
+pub fn generate_event<T: AsMemoryModel>(event: T) {
+    unsafe {
+        assembly_script_generate_event(event.as_ptr_data());
+    }
+}
+
+pub fn set_data<T: AsMemoryModel, U: AsMemoryModel>(key: T, value: U) {
+    unsafe {
+        assembly_script_set_data(key.as_ptr_data(), value.as_ptr_data());
+    }
+}
+
+pub fn get_data<T: AsMemoryModel>(key: T) -> i32 {
+    unsafe {
+        assembly_script_get_data(key.as_ptr_data())
+    }
+}
+
+pub fn has_data<T: AsMemoryModel>(key: T) -> bool {
+    unsafe {
+        assembly_script_has_data(key.as_ptr_data())
+    }
+}

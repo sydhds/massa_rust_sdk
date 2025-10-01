@@ -94,7 +94,8 @@ impl Interface for MassaScRunnerInterface {
     }
 
     fn print(&self, message: &str) -> massa_sc_runtime::Result<()> {
-        todo!()
+        println!("{message}");
+        Ok(())
     }
 
     fn get_keys(&self, prefix: Option<&[u8]>) -> massa_sc_runtime::Result<BTreeSet<Vec<u8>>> {
