@@ -107,9 +107,6 @@ impl<T: Pod> AsVec<T> {
         self.0.drain(4..);
     }
 
-
-
-
     pub fn extend_from_slice(&mut self, other: &[T]) {
         self.__update_as_header(UpdateLength::Offset(other.len()));
         self.0.extend_from_slice(other);
@@ -142,14 +139,33 @@ impl<T: Pod> AsVec<T> {
         }
         res
     }
+
+    pub fn remove(&mut self, index: usize) -> T {
+
+        let inner_len = self.len();
+        let res = self.0.remove(index + (Self::__header_size() / size_of::<T>()));
+        self.__update_as_header(UpdateLength::Length(inner_len - 1));
+        res
+    }
+
 }
 
-/*
+
 impl AsVec<u8> {
 
+    pub fn new() -> Self {
+        let inner: Vec<u8> = vec![0, Self::HEADER_SIZE as u8];
+        Self(
+           inner
+        )
+    }
+
+    /*
     pub fn drain<'a, R>(&'a mut self, range: R) -> Drain<'a, u8> where R: RangeBounds<usize> {
 
-        let inner = core::mem::take(&mut self.0);
+        let self_0 = &mut self.0;
+        let self_0_1 = &mut *self_0;
+        let inner = core::mem::take(self_0);
         let (ptr, len, cap) = inner.into_raw_parts();
 
         let mut rebuilt = unsafe {
@@ -160,15 +176,26 @@ impl AsVec<u8> {
         };
 
         unsafe {
-            self.0 = rebuilt;
-            let res =self.0.drain(range);
+            *self_0 = rebuilt;
+            let res = self_0.drain(range);
 
-            self.0 = Vec::from_raw_parts(self.0.as_mut_ptr().offset(Self::HEADER_SIZE as isize), len, cap);
-            res
+            // self.0 = Vec::from_raw_parts(self.0.as_mut_ptr().offset(Self::HEADER_SIZE as isize), len, cap);
+            // res
+            *self_0_1 = Vec::from_raw_parts(self_0_1.as_mut_ptr().offset(Self::HEADER_SIZE as isize), len, cap);
+                res
         }
     }
+    */
 }
-*/
+
+impl AsVec<u16> {
+    pub fn new() -> Self {
+        let inner: Vec<u16> = vec![0, (Self::HEADER_SIZE / size_of::<u16>()) as u16];
+        Self(
+            inner
+        )
+    }
+}
 
 impl<T: Pod + PartialEq> AsVec<T> {
 
@@ -321,6 +348,31 @@ mod tests {
 
         v.push(42);
         assert_eq!(v.len(), 1);
+    }
+
+    #[test]
+    #[no_mangle]
+    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_remove() {
+
+        let mut v = AsVec::from_iter(vec![1u8, 2, 3]);
+        assert_eq!(v.len(), 3);
+
+        let rm_1 = v.remove(1);
+
+        assert_eq!(v.len(), 2);
+        let msg = format!("v: {:?}", v.__as_raw_slice());
+        generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
+
+        assert_eq!(v.__as_raw_slice(), &[2, 0, 0, 0, 1, 3]);
+
+        let mut v = AsVec::from_iter(vec![1u16, 2, 3]);
+        assert_eq!(v.len(), 3);
+
+        let rm_1 = v.remove(1);
+
+        assert_eq!(v.len(), 2);
+
+        // TODO: check with __as_raw_slice
     }
 
     /*
