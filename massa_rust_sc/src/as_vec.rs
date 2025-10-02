@@ -91,7 +91,7 @@ impl<T: Pod> AsVec<T> {
     }
 
     pub fn append(&mut self, other: &mut Self) {
-        self.__update_as_header(UpdateLength::Offset(other.len()));
+        self.__update_as_header(UpdateLength::Offset(other.len() * size_of::<T>()));
         self.0.extend(&other.0[4..]);
         other.clear();
     }
@@ -108,12 +108,12 @@ impl<T: Pod> AsVec<T> {
     }
 
     pub fn extend_from_slice(&mut self, other: &[T]) {
-        self.__update_as_header(UpdateLength::Offset(other.len()));
+        self.__update_as_header(UpdateLength::Offset(other.len() * size_of::<T>()));
         self.0.extend_from_slice(other);
     }
 
     pub fn insert(&mut self, index: usize, element: T) {
-        self.__update_as_header(UpdateLength::Offset(1));
+        self.__update_as_header(UpdateLength::Offset(size_of::<T>()));
         self.0.insert((Self::__header_size() / size_of::<T>()) + index, element);
     }
 
@@ -122,7 +122,7 @@ impl<T: Pod> AsVec<T> {
     }
 
     pub fn push(&mut self, item: T) {
-        self.__update_as_header(UpdateLength::Offset(1));
+        self.__update_as_header(UpdateLength::Offset(size_of::<T>()));
         // Push new item
         self.0.push(item);
     }
@@ -135,16 +135,16 @@ impl<T: Pod> AsVec<T> {
         }
         let res = self.0.pop();
         if res.is_some() {
-            self.__update_as_header(UpdateLength::Length(inner_len - 1));
+            self.__update_as_header(UpdateLength::Length(inner_len - size_of::<T>()));
         }
         res
     }
 
     pub fn remove(&mut self, index: usize) -> T {
 
-        let inner_len = self.len();
+        let inner_len = self.len() * size_of::<T>();
         let res = self.0.remove(index + (Self::__header_size() / size_of::<T>()));
-        self.__update_as_header(UpdateLength::Length(inner_len - 1));
+        self.__update_as_header(UpdateLength::Length(inner_len - size_of::<T>()));
         res
     }
 
@@ -260,10 +260,8 @@ impl AsMemoryModel for AsVec<u16> {
 #[cfg(test)]
 mod tests {
     use alloc::format;
-    use crate::generate_event;
+    use crate::{generate_event, get_data, set_data, AsSlice};
     use super::*;
-
-
 
     #[test]
     #[no_mangle]
@@ -354,25 +352,38 @@ mod tests {
     #[no_mangle]
     fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_remove() {
 
-        let mut v = AsVec::from_iter(vec![1u8, 2, 3]);
-        assert_eq!(v.len(), 3);
+        {
+            let mut v = AsVec::from_iter(vec![1u8, 2, 3]);
+            assert_eq!(v.len(), 3);
 
-        let rm_1 = v.remove(1);
+            let rm_1 = v.remove(1);
 
-        assert_eq!(v.len(), 2);
-        let msg = format!("v: {:?}", v.__as_raw_slice());
-        generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
+            assert_eq!(v.len(), 2);
+            // let msg = format!("v: {:?}", v.__as_raw_slice());
+            // generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
+            assert_eq!(v.__as_raw_slice(), &[2, 0, 0, 0, 1, 3]);
+        }
 
-        assert_eq!(v.__as_raw_slice(), &[2, 0, 0, 0, 1, 3]);
+        // AsVec<u16>
+        {
+            let mut v = AsVec::from_iter(vec![1u16, 2, 3]);
 
-        let mut v = AsVec::from_iter(vec![1u16, 2, 3]);
-        assert_eq!(v.len(), 3);
+            let v_s = v.__as_raw_slice();
+            let v_s_2: &[u8] = bytemuck::cast_slice(v_s);
+            let msg = format!("v: {:?}", v_s_2);
+            generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
+            assert_eq!(v.len(), 3);
 
-        let rm_1 = v.remove(1);
+            let rm_1 = v.remove(1);
+            assert_eq!(v.len(), 2);
 
-        assert_eq!(v.len(), 2);
+            let v_s = v.__as_raw_slice();
+            let v_s_2: &[u8] = bytemuck::cast_slice(v_s);
+            let msg = format!("v: {:?}", v_s_2);
+            generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
 
-        // TODO: check with __as_raw_slice
+            assert_eq!(v_s_2, &[4, 0, 0, 0, 1, 0, 3, 0]);
+        }
     }
 
     /*
@@ -392,6 +403,43 @@ mod tests {
         let msg = format!("v: {:?}", v.__as_raw_slice());
         generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
         // assert_eq!(v.len(), 1);
+    }
+    */
+
+    /*
+    #[test]
+    #[no_mangle]
+    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_storage() {
+
+        let mut k1 = AsVec::from_iter(vec![250u16]);
+        let mut k1_2 = AsVec::from_iter(vec![250u16]);
+        let mut k2 = AsVec::from_iter(vec![150u16]);
+        let mut k2_2 = AsVec::from_iter(vec![150u16]);
+        let mut v1 = AsVec::from_iter(vec![1u16, 2, 3]);
+        let mut v2 = AsVec::from_iter(vec![41u16, 42, 43]);
+
+        // assert_eq!(v.len(), 3);
+        // let rm_1 = v.remove(1);
+
+        set_data(k1, v1);
+        set_data(k2, v2);
+
+        let v1_res_ = get_data(k1_2) as *const u8;
+
+        /*
+        let v1_res: AsSlice<u16> = AsSlice::from(v1_res_);
+        let msg = format!("v: {:?}", v1_res.as_ref());
+        generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
+        */
+
+        let v1_res: AsSlice<u8> = AsSlice::from(v1_res_);
+        let msg = format!("v: {:?}", v1_res.as_ref());
+        generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
+
+        // let v2_res = get_data(k2_2);
+        //
+        // let msg = format!("v: {:?}", v2_res.__as_raw_slice());
+        // generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
     }
     */
 }

@@ -108,11 +108,6 @@ fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
 }
 */
 
-
-
-
-
-
 pub fn generate_event<T: AsMemoryModel>(event: T) {
     unsafe {
         assembly_script_generate_event(event.as_ptr_data());
