@@ -5,7 +5,7 @@ extern crate alloc;
 use alloc::format;
 // internal
 use massa_rust_sc::{
-    string_to_as_array, to_as_array,
+    to_as_slice, to_as_array,
     generate_event, AsVec, set_data, get_data,
     AsSlice
 };
@@ -14,9 +14,9 @@ use utf16_lit::utf16;
 
 // constants
 
-const EXAMPLE: AsSlice<u8> = string_to_as_array!("massa_rust_sdk");
-const KEY: AsSlice<u8> = string_to_as_array!("greeting_key");
-const VALUE: AsSlice<u8> = string_to_as_array!("hello");
+const EXAMPLE: AsSlice<u8> = to_as_slice!("massa_rust_sdk");
+const KEY: AsSlice<u8> = to_as_slice!("greeting_key");
+const VALUE: AsSlice<u8> = to_as_slice!("hello");
 
 // end constants
 
@@ -43,7 +43,6 @@ extern "C" fn constructor() {
 
 #[no_mangle]
 extern "C" fn hello() -> *const u8 {
-
     let ptr = get_data(KEY);
     ptr as *const u8
 }
@@ -65,8 +64,8 @@ mod tests {
     fn __MASSA_RUST_SDK_UNIT_TEST_hello_1() {
 
         // Storage set (before calling hello())
-        const T_KEY: AsSlice<u8> = string_to_as_array!("greeting_key");
-        const T_VALUE: AsSlice<u8> = string_to_as_array!("hellw");
+        const T_KEY: AsSlice<u8> = to_as_slice!("greeting_key");
+        const T_VALUE: AsSlice<u8> = to_as_slice!("hellw");
 
         generate_event(T_VALUE);
         set_data(T_KEY, T_VALUE);

@@ -1,11 +1,5 @@
-
 use alloc::vec;
-use alloc::vec::{Drain, Vec};
-use core::ops::{
-    Range,
-    RangeBounds
-};
-use core::slice::{self, SliceIndex};
+use alloc::vec::Vec;
 // third-party
 use bytemuck::Pod;
 // internal
@@ -17,29 +11,6 @@ enum UpdateLength {
     Length(usize),
 }
 
-/*
-pub struct AsVecDrain<'a, T> {
-    inner: Drain<'a, T>,
-    // len: usize,
-}
-
-impl<T> Iterator for AsVecDrain<'_, T> {
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
-    }
-}
-*/
-
-/*
-impl<'a, T> FromIterator<T> for AsVecDrain<'a, T> {
-    fn from_iter<U: IntoIterator<Item=T>>(iter: U) -> Self {
-        todo!()
-    }
-}
-*/
-
 #[derive(Debug)]
 pub struct AsVec<T>(Vec<T>);
 
@@ -50,12 +21,6 @@ impl<T: Pod> AsVec<T> {
         // self.0.len() - header_size
         self.0.len() - (Self::__header_size() / size_of::<T>())
     }
-
-    /*
-    fn __byte_len(&self) -> usize {
-        self.0.len() * size_of::<T>()
-    }
-    */
 
     const fn __header_size() -> usize {
         <Self as AsMemoryModel>::HEADER_SIZE
@@ -95,12 +60,6 @@ impl<T: Pod> AsVec<T> {
         self.0.extend(&other.0[4..]);
         other.clear();
     }
-
-    /*
-    pub fn capacity(&self) -> usize {
-        self.0.capacity()
-    }
-    */
 
     pub fn clear(&mut self) {
         self.__update_as_header(UpdateLength::Length(0));
@@ -159,33 +118,6 @@ impl AsVec<u8> {
            inner
         )
     }
-
-    /*
-    pub fn drain<'a, R>(&'a mut self, range: R) -> Drain<'a, u8> where R: RangeBounds<usize> {
-
-        let self_0 = &mut self.0;
-        let self_0_1 = &mut *self_0;
-        let inner = core::mem::take(self_0);
-        let (ptr, len, cap) = inner.into_raw_parts();
-
-        let mut rebuilt = unsafe {
-            // We can now make changes to the components, such as
-            // transmuting the raw pointer to a compatible type.
-            // let ptr = ptr as *mut u8;
-            Vec::from_raw_parts(ptr.offset(Self::HEADER_SIZE as isize), len - Self::HEADER_SIZE, cap - Self::HEADER_SIZE)
-        };
-
-        unsafe {
-            *self_0 = rebuilt;
-            let res = self_0.drain(range);
-
-            // self.0 = Vec::from_raw_parts(self.0.as_mut_ptr().offset(Self::HEADER_SIZE as isize), len, cap);
-            // res
-            *self_0_1 = Vec::from_raw_parts(self_0_1.as_mut_ptr().offset(Self::HEADER_SIZE as isize), len, cap);
-                res
-        }
-    }
-    */
 }
 
 impl AsVec<u16> {
@@ -241,21 +173,6 @@ impl<T: Pod> AsMemoryModel for AsVec<T> {
         slice.as_ptr()
     }
 }
-
-/*
-impl AsMemoryModel for AsVec<u8> {
-    fn as_ptr_header(&self) -> *const u8 {
-        self.0.as_ptr()
-    }
-}
-
-impl AsMemoryModel for AsVec<u16> {
-    fn as_ptr_header(&self) -> *const u8 {
-        let slice: &[u8] = bytemuck::cast_slice(self.0.as_slice());
-        slice.as_ptr()
-    }
-}
-*/
 
 #[cfg(test)]
 mod tests {
@@ -385,61 +302,4 @@ mod tests {
             assert_eq!(v_s_2, &[4, 0, 0, 0, 1, 0, 3, 0]);
         }
     }
-
-    /*
-    #[test]
-    #[no_mangle]
-    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_drain() {
-
-        let mut v = AsVec::from_iter(vec![1u8, 2, 251, 255]);
-
-        let msg = format!("v: {:?}", v.__as_raw_slice());
-        generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
-
-        let u: Vec<_> = v
-            .drain(1..)
-            .collect();
-
-        let msg = format!("v: {:?}", v.__as_raw_slice());
-        generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
-        // assert_eq!(v.len(), 1);
-    }
-    */
-
-    /*
-    #[test]
-    #[no_mangle]
-    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_storage() {
-
-        let mut k1 = AsVec::from_iter(vec![250u16]);
-        let mut k1_2 = AsVec::from_iter(vec![250u16]);
-        let mut k2 = AsVec::from_iter(vec![150u16]);
-        let mut k2_2 = AsVec::from_iter(vec![150u16]);
-        let mut v1 = AsVec::from_iter(vec![1u16, 2, 3]);
-        let mut v2 = AsVec::from_iter(vec![41u16, 42, 43]);
-
-        // assert_eq!(v.len(), 3);
-        // let rm_1 = v.remove(1);
-
-        set_data(k1, v1);
-        set_data(k2, v2);
-
-        let v1_res_ = get_data(k1_2) as *const u8;
-
-        /*
-        let v1_res: AsSlice<u16> = AsSlice::from(v1_res_);
-        let msg = format!("v: {:?}", v1_res.as_ref());
-        generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
-        */
-
-        let v1_res: AsSlice<u8> = AsSlice::from(v1_res_);
-        let msg = format!("v: {:?}", v1_res.as_ref());
-        generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
-
-        // let v2_res = get_data(k2_2);
-        //
-        // let msg = format!("v: {:?}", v2_res.__as_raw_slice());
-        // generate_event(msg.encode_utf16().collect::<AsVec<u16>>());
-    }
-    */
 }

@@ -23,19 +23,3 @@ pub trait AsMemoryModel {
         self.as_ptr_data_raw() as i32
     }
 }
-
-/*
-impl AsMemoryModel for &[u8] {
-    fn as_ptr_header(&self) -> *const u8 {
-        {
-            // TODO: can we have this checks in the Trait? in Trait::as_ptr_data_raw?
-            //       require SuperTrait like: trait AsMemoryModel: AsRef<[u8]> + AsMemoryModel {} ?
-            debug_assert!(self.len() >= <&[u8] as AsMemoryModel>::HEADER_SIZE);
-            let data_len = u32::from_le_bytes(self[..4].try_into().unwrap());
-            debug_assert!(data_len as usize + 4 == self.len());
-        }
-
-        self.as_ptr()
-    }
-}
-*/

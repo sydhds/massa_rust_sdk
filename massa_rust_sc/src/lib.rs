@@ -1,5 +1,4 @@
 #![no_std]
-#![feature(vec_into_raw_parts)]
 
 // Massa blockchain only accept Wasm without the reference-types and multivalue features
 // According to this blog post: https://blog.rust-lang.org/2024/09/24/webassembly-targets-change-in-default-target-features/
