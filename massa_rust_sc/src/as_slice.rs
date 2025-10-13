@@ -1,6 +1,6 @@
+use core::ops::Deref;
 use core::ptr::slice_from_raw_parts;
 use core::slice;
-use core::ops::Deref;
 // third-party
 use bytemuck::Pod;
 // internal
@@ -13,7 +13,6 @@ impl<T, const N: usize> AsArray<T, N> {
         AsSlice(&self.0)
     }
 }
-
 
 #[derive(Debug)]
 pub struct AsSlice<'a, T>(&'a [T]);
@@ -38,7 +37,6 @@ impl<'a, T: Pod> AsMemoryModel for AsSlice<'a, T> {
 // Should be try_from ? if ptr is (can be) NULL?
 impl From<*const u8> for AsSlice<'_, u8> {
     fn from(ptr: *const u8) -> Self {
-
         let res_size = unsafe {
             let res_size_ptr = ptr.offset(-4);
             let slice = slice::from_raw_parts(res_size_ptr, 4);
@@ -55,10 +53,8 @@ impl From<*const u8> for AsSlice<'_, u8> {
     }
 }
 
-
 impl From<*const u8> for AsSlice<'_, u16> {
     fn from(ptr: *const u8) -> Self {
-
         let res_size = unsafe {
             let res_size_ptr = ptr.offset(-4);
             let slice = slice::from_raw_parts(res_size_ptr, 4);
@@ -89,6 +85,6 @@ macro_rules! to_as_slice {
         const K__: &[u16] = &utf16!($key);
         const K_U8__: &[u8] = bytemuck::must_cast_slice(K__);
         const N__: usize = K_U8__.len();
-        to_as_array::<{N__ + 4}>(K_U8__).as_slice()
+        to_as_array::<{ N__ + 4 }>(K_U8__).as_slice()
     }};
 }

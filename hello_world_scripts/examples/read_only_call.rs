@@ -1,5 +1,7 @@
 use clap::Parser;
-use massa_rust_web3::{Address, BUILDNET_URL, ReadOnlyCall, execute_read_only_call, ReadOnlyResult};
+use massa_rust_web3::{
+    Address, BUILDNET_URL, ReadOnlyCall, ReadOnlyResult, execute_read_only_call,
+};
 use std::str::FromStr;
 
 const CONTRACT_ADDRESS: &str = "AS1AArefHYqYd9KB8wcCkvgesDap2teidRdwPJA22DpZqFxPUxuY";
@@ -51,8 +53,8 @@ async fn main() {
     println!("Read (function: `{}`): {:#?}", read_function, hello);
 
     let res = match &hello[0].result {
-        ReadOnlyResult::Ok(res) => { String::from_utf16_lossy( bytemuck::cast_slice(res.as_slice()) ) }
-        ReadOnlyResult::Error(e) => e.clone()
+        ReadOnlyResult::Ok(res) => String::from_utf16_lossy(bytemuck::cast_slice(res.as_slice())),
+        ReadOnlyResult::Error(e) => e.clone(),
     };
 
     println!("result as utf-16 string: {:?}", res);

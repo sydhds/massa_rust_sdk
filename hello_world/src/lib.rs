@@ -4,11 +4,7 @@ extern crate alloc;
 // rust crates
 use alloc::format;
 // internal
-use massa_rust_sc::{
-    to_as_slice, to_as_array,
-    generate_event, AsVec, set_data, get_data,
-    AsSlice
-};
+use massa_rust_sc::{generate_event, get_data, set_data, to_as_array, to_as_slice, AsSlice, AsVec};
 // third-party
 use utf16_lit::utf16;
 
@@ -22,16 +18,13 @@ const VALUE: AsSlice<u8> = to_as_slice!("hello");
 
 #[no_mangle]
 extern "C" fn constructor() {
-
     // Use generateEvent
     // Note: generateEvent requires an UTF16 encoded string as input
     generate_event(EXAMPLE);
 
     // Use generateEvent but with dynamic data (dynamic Rust string)
     let msg = format!("hello there {}!!", 900);
-    let msg_utf16 = msg
-        .encode_utf16()
-        .collect::<AsVec<u16>>();
+    let msg_utf16 = msg.encode_utf16().collect::<AsVec<u16>>();
     generate_event(msg_utf16);
 
     // Storage set
@@ -62,7 +55,6 @@ mod tests {
     #[test]
     #[no_mangle]
     fn __MASSA_RUST_SDK_UNIT_TEST_hello_1() {
-
         // Storage set (before calling hello())
         const T_KEY: AsSlice<u8> = to_as_slice!("greeting_key");
         const T_VALUE: AsSlice<u8> = to_as_slice!("hellw");

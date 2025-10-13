@@ -15,7 +15,6 @@ enum UpdateLength {
 pub struct AsVec<T>(Vec<T>);
 
 impl<T: Pod> AsVec<T> {
-
     pub const fn len(&self) -> usize {
         // let header_size = <Self as AsMemoryModel>::HEADER_SIZE;
         // self.0.len() - header_size
@@ -28,14 +27,11 @@ impl<T: Pod> AsVec<T> {
 
     fn __update_as_header(&mut self, l: UpdateLength) {
         // current length + 1
-        let new_len =  match l {
-            UpdateLength::Offset(offset) => {
-                self.len() + offset
-            },
-            UpdateLength::Length(nl) => {
-                nl
-            },
-        }.to_le_bytes();
+        let new_len = match l {
+            UpdateLength::Offset(offset) => self.len() + offset,
+            UpdateLength::Length(nl) => nl,
+        }
+        .to_le_bytes();
 
         // let msg = format!("len: {:?} - offset: {:?}", self.len(), l);
         // generate_event( msg.encode_utf16().collect::<AsVec<u16>>());
@@ -73,7 +69,8 @@ impl<T: Pod> AsVec<T> {
 
     pub fn insert(&mut self, index: usize, element: T) {
         self.__update_as_header(UpdateLength::Offset(size_of::<T>()));
-        self.0.insert((Self::__header_size() / size_of::<T>()) + index, element);
+        self.0
+            .insert((Self::__header_size() / size_of::<T>()) + index, element);
     }
 
     pub const fn is_empty(&self) -> bool {
@@ -87,7 +84,6 @@ impl<T: Pod> AsVec<T> {
     }
 
     pub fn pop(&mut self) -> Option<T> {
-
         let inner_len = self.len();
         if inner_len == 0 {
             return None;
@@ -100,44 +96,36 @@ impl<T: Pod> AsVec<T> {
     }
 
     pub fn remove(&mut self, index: usize) -> T {
-
         let inner_len = self.len() * size_of::<T>();
-        let res = self.0.remove(index + (Self::__header_size() / size_of::<T>()));
+        let res = self
+            .0
+            .remove(index + (Self::__header_size() / size_of::<T>()));
         self.__update_as_header(UpdateLength::Length(inner_len - size_of::<T>()));
         res
     }
-
 }
 
-
 impl AsVec<u8> {
-
     pub fn new() -> Self {
         let inner: Vec<u8> = vec![0, Self::HEADER_SIZE as u8];
-        Self(
-           inner
-        )
+        Self(inner)
     }
 }
 
 impl AsVec<u16> {
     pub fn new() -> Self {
         let inner: Vec<u16> = vec![0, (Self::HEADER_SIZE / size_of::<u16>()) as u16];
-        Self(
-            inner
-        )
+        Self(inner)
     }
 }
 
 impl<T: Pod + PartialEq> AsVec<T> {
-
     pub fn dedup(&mut self) {
         todo!()
     }
 }
 
 impl FromIterator<u8> for AsVec<u8> {
-
     fn from_iter<I: IntoIterator<Item = u8>>(iter: I) -> Self {
         let mut v = vec![0; 4];
         v.extend(iter);
@@ -151,9 +139,7 @@ impl FromIterator<u8> for AsVec<u8> {
     }
 }
 
-
 impl FromIterator<u16> for AsVec<u16> {
-
     fn from_iter<I: IntoIterator<Item = u16>>(iter: I) -> Self {
         let mut v = vec![0; 2];
         v.extend(iter);
@@ -176,14 +162,13 @@ impl<T: Pod> AsMemoryModel for AsVec<T> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::format;
-    use crate::{generate_event, get_data, set_data, AsSlice};
     use super::*;
+    use crate::{generate_event, get_data, set_data, AsSlice};
+    use alloc::format;
 
     #[test]
     #[no_mangle]
     fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_append() {
-
         let mut v0 = AsVec::from_iter(vec![1u8, 2, 3]);
         let mut v1 = AsVec::from_iter(vec![255u8]);
         let expected_len = v0.len() + v1.len();
@@ -195,7 +180,6 @@ mod tests {
     #[test]
     #[no_mangle]
     fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_push() {
-
         let v0 = vec![1u8, 2, 3];
         assert_eq!(v0.len(), 3);
         let mut av0 = AsVec::from_iter(vec![1u8, 2, 3]);
@@ -247,7 +231,6 @@ mod tests {
     #[test]
     #[no_mangle]
     fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_clear() {
-
         let mut v = AsVec::from_iter(vec![1u8, 2, 3]);
 
         assert_eq!(v.len(), 3);
@@ -268,7 +251,6 @@ mod tests {
     #[test]
     #[no_mangle]
     fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_remove() {
-
         {
             let mut v = AsVec::from_iter(vec![1u8, 2, 3]);
             assert_eq!(v.len(), 3);

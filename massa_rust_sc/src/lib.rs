@@ -8,23 +8,21 @@
 // https://github.com/rust-lang/rust/issues/128475
 // https://github.com/rust-lang/rust/pull/128511
 
+mod as_slice;
 mod as_vec;
 mod memory;
-mod as_slice;
 
-use lol_alloc::{
-    LeakingPageAllocator,
-};
+use lol_alloc::LeakingPageAllocator;
 #[global_allocator]
 static ALLOCATOR: LeakingPageAllocator = LeakingPageAllocator;
 
 extern crate alloc;
-use alloc::vec;
 use crate::memory::AsMemoryModel;
+use alloc::vec;
 
 // export
+pub use as_slice::{to_as_array, AsArray, AsSlice};
 pub use as_vec::AsVec;
-pub use as_slice::{AsSlice, AsArray, to_as_array};
 
 #[link(wasm_import_module = "massa")]
 extern "C" {
@@ -73,9 +71,7 @@ extern "C" fn __new(size: usize, _id: i32) -> *mut u8 {
     v[12..16].copy_from_slice(&[1, 0, 0, 0]);
     v[16..HEADER_SIZE].copy_from_slice(&size.to_le_bytes());
 
-    unsafe {
-        v.leak().as_mut_ptr().add(HEADER_SIZE)
-    }
+    unsafe { v.leak().as_mut_ptr().add(HEADER_SIZE) }
 }
 
 /*
@@ -98,7 +94,6 @@ macro_rules! string_to_as_array {
 }
 */
 
-
 /*
 #[panic_handler]
 fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
@@ -120,13 +115,9 @@ pub fn set_data<T: AsMemoryModel, U: AsMemoryModel>(key: T, value: U) {
 }
 
 pub fn get_data<T: AsMemoryModel>(key: T) -> i32 {
-    unsafe {
-        assembly_script_get_data(key.as_ptr_data())
-    }
+    unsafe { assembly_script_get_data(key.as_ptr_data()) }
 }
 
 pub fn has_data<T: AsMemoryModel>(key: T) -> bool {
-    unsafe {
-        assembly_script_has_data(key.as_ptr_data())
-    }
+    unsafe { assembly_script_has_data(key.as_ptr_data()) }
 }
