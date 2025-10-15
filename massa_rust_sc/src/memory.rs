@@ -12,7 +12,7 @@ pub trait AsMemoryModel {
 
     /// Get a pointer to the data
     fn as_ptr_data_raw(&self) -> *const u8 {
-        unsafe { self.as_ptr_header().offset(Self::HEADER_SIZE as isize) }
+        unsafe { self.as_ptr_header().add(Self::HEADER_SIZE) }
     }
 
     /// Get a pointer to the data as i32 value

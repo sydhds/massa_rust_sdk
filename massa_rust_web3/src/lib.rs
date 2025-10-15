@@ -250,6 +250,8 @@ pub struct DeployerArgs {
     pub max_gas: Option<u64>,
 }
 
+#[allow(clippy::collapsible_if)]
+#[allow(clippy::manual_range_contains)]
 pub async fn deploy_smart_contract(
     url: impl AsRef<str> + Clone,
     key_pair: &KeyPair,
@@ -400,7 +402,7 @@ pub async fn deploy_smart_contract(
 
                 let res = execute_read_only_bytecode(url.clone(), read_params).await?;
                 debug!("Estimating gas cost: res: {:?}", res);
-                if let Some(res) = res.get(0) {
+                if let Some(res) = res.first() {
                     // TODO: massa-web3 use a 20% margin for gas estimation,
                     // but this is working for deployment?
                     res.gas_cost
@@ -505,7 +507,7 @@ pub async fn deploy_smart_contract(
     loop {
         let status = get_operations(url.clone(), op_id.clone()).await;
         if let Ok(status) = status {
-            if status.len() > 0 {
+            if !status.is_empty() {
                 if status[0].op_exec_status.is_some() || status[0].is_operation_final == Some(true)
                 {
                     // println!("exec done or is_final: {}", status[0]);

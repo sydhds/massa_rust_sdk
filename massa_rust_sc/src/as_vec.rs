@@ -112,10 +112,22 @@ impl AsVec<u8> {
     }
 }
 
+impl Default for AsVec<u8> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AsVec<u16> {
     pub fn new() -> Self {
         let inner: Vec<u16> = vec![0, (Self::HEADER_SIZE / size_of::<u16>()) as u16];
         Self(inner)
+    }
+}
+
+impl Default for AsVec<u16> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

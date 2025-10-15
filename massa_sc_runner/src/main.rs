@@ -87,7 +87,7 @@ fn get_wasm_functions(wasm_content: &[u8], test_filter: Option<String>) -> Vec<S
                 && export.name().starts_with(UNIT_TEST_PREFIX)
             {
                 if let Some(filter) = &test_filter {
-                    if export.name().find(filter).is_some() {
+                    if export.name().contains(filter) {
                         // Test name matched the test filter
                         Some(export.name().to_string())
                     } else {

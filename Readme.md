@@ -111,3 +111,13 @@ This section is for developers that want to hack on the massa rust sdk code itse
 
 * cargo test -p massa_rust_web3
 
+## Others
+
+* Clippy
+  * cargo clippy -p massa_rust_sc --target wasm32-unknown-unknown
+  * cargo clippy -p hello_world --target wasm32-unknown-unknown
+  * cargo clippy -p massa_rust_web3 
+  * cargo clippy -p massa_sc_runner
+  * cargo clippy -p hello_world_scripts
+* Fmt 
+  * cargo fmt
