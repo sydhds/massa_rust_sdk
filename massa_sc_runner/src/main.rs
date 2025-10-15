@@ -8,7 +8,7 @@ use tempfile::NamedTempFile;
 // internal
 use interface::MassaScRunnerInterface;
 
-const UNIT_TEST_PREFIX: &str = "__MASSA_RUST_SDK_UNIT_TEST";
+const UNIT_TEST_PREFIX: &str = "__wasm_test_unit__";
 
 const GAS_COSTS_FILE: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -79,6 +79,17 @@ fn get_wasm_functions(wasm_content: &[u8], test_filter: Option<String>) -> Vec<S
     let engine = Engine::default();
     let store = Store::new(engine);
     let module = Module::new(&store, wasm_content).unwrap();
+
+    // Debug: list all functions in wasm file
+    /*
+    module
+        .exports()
+        .for_each(|export| {
+            if let ExternType::Function(_f) = export.ty() {
+                println!("export name: --{}--", export.name());
+            }
+        });
+    */
 
     module
         .exports()
