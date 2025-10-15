@@ -15,8 +15,9 @@ use massa_api_exports::node::NodeStatus;
 use massa_api_exports::operation::{OperationInfo, OperationInput};
 use massa_models::operation::SecureShareOperation;
 // massa re exports
-pub use massa_api_exports::execution::{ExecuteReadOnlyResponse, ReadOnlyCall, ReadOnlyResult};
 use massa_api_exports::execution::ReadOnlyBytecodeExecution;
+pub use massa_api_exports::execution::{ExecuteReadOnlyResponse, ReadOnlyCall, ReadOnlyResult};
+use massa_models::datastore::DatastoreSerializer;
 pub use massa_models::{
     address::Address,
     amount::Amount,
@@ -28,9 +29,8 @@ pub use massa_models::{
     secure_share::SecureShareContent,
     slot::Slot,
 };
-use massa_models::datastore::DatastoreSerializer;
-pub use massa_signature::KeyPair;
 use massa_serialization::{SerializeError, Serializer};
+pub use massa_signature::KeyPair;
 // use reqwest::Url;
 // internal
 use crate::deploy::DEPLOYER_BYTECODE;
@@ -168,7 +168,6 @@ pub async fn execute_read_only_bytecode(
     url: impl AsRef<str>,
     read_params: Vec<ReadOnlyBytecodeExecution>,
 ) -> Result<Vec<ExecuteReadOnlyResponseLw>, client::Error> {
-
     // Note: Massa issue: https://github.com/massalabs/massa/issues/4775
 
     let client = HttpClientBuilder::default().build(url)?;
@@ -196,7 +195,13 @@ pub async fn send_operations(
     let client = HttpClientBuilder::default().build(url)?;
 
     let operation: SecureShareOperation = {
-        Operation::new_verifiable(operation, OperationSerializer::new(), keypair, BUILDNET_CHAINID).unwrap()
+        Operation::new_verifiable(
+            operation,
+            OperationSerializer::new(),
+            keypair,
+            BUILDNET_CHAINID,
+        )
+        .unwrap()
     };
 
     let input: OperationInput = OperationInput {
@@ -227,7 +232,7 @@ pub enum DeployError {
     #[error("Invalid address retrieved from events: {0}")]
     InvalidAddress(String),
     #[error("Unable to retrieve the address of the deployed smart contract from events")]
-    AddressNotFound
+    AddressNotFound,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -251,7 +256,6 @@ pub async fn deploy_smart_contract(
     smart_contract: &Path,
     args: DeployerArgs,
 ) -> Result<Address, DeployError> {
-
     // From: node_modules/@massalabs/massa-web3/dist/cmd/smartContracts/constants.d.ts
     // const MAX_GAS_CALL: u64 = 4294167295;
 
@@ -381,7 +385,6 @@ pub async fn deploy_smart_contract(
         let max_gas = match args.max_gas {
             Some(max_gas) => max_gas,
             None => {
-
                 debug!("Estimating gas cost...");
                 let ds_serializer = DatastoreSerializer::new();
                 let mut buffer = Vec::new();
@@ -435,7 +438,11 @@ pub async fn deploy_smart_contract(
         expire_period,
     };
 
-    debug!("content fee: {:?} - raw: {}", content.fee, content.fee.to_raw());
+    debug!(
+        "content fee: {:?} - raw: {}",
+        content.fee,
+        content.fee.to_raw()
+    );
     debug!("content ex period: {:?}", content.expire_period);
     // panic!();
 
@@ -499,7 +506,8 @@ pub async fn deploy_smart_contract(
         let status = get_operations(url.clone(), op_id.clone()).await;
         if let Ok(status) = status {
             if status.len() > 0 {
-                if status[0].op_exec_status.is_some() || status[0].is_operation_final == Some(true) {
+                if status[0].op_exec_status.is_some() || status[0].is_operation_final == Some(true)
+                {
                     // println!("exec done or is_final: {}", status[0]);
                     break;
                 }
@@ -527,7 +535,7 @@ pub async fn deploy_smart_contract(
     let events = get_events(url, event_filter).await?;
 
     debug!("events: {:#?}", events);
-    
+
     const EVENT_CONSTRUCTOR_ADDRESS_PREFIX: &str = "Contract deployed at address: ";
     let addr: Vec<&str> = events
         .iter()
@@ -541,11 +549,8 @@ pub async fn deploy_smart_contract(
         })
         .collect();
 
-    let addr_1 = addr
-        .first()
-        .ok_or(DeployError::AddressNotFound)?;
-    Address::from_str(addr_1)
-        .map_err(|_e| DeployError::InvalidAddress(addr_1.to_string()))
+    let addr_1 = addr.first().ok_or(DeployError::AddressNotFound)?;
+    Address::from_str(addr_1).map_err(|_e| DeployError::InvalidAddress(addr_1.to_string()))
 }
 
 #[cfg(test)]
@@ -554,7 +559,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_status() {
-
         let node_status = get_status(BUILDNET_URL).await.unwrap();
         println!("{}", "#".repeat(20));
         println!("Node status: {}", node_status);

@@ -10,10 +10,12 @@ use interface::MassaScRunnerInterface;
 
 const UNIT_TEST_PREFIX: &str = "__MASSA_RUST_SDK_UNIT_TEST";
 
-const GAS_COSTS_FILE : &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/resources/abi_gas_costs.json"));
+const GAS_COSTS_FILE: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/resources/abi_gas_costs.json"
+));
 
 fn main() {
-
     // TODO: debug!
     println!("args: {:?}", std::env::args());
     // println!("Should run with wasm now...");
@@ -26,7 +28,9 @@ fn main() {
 
     // Load gas costs
     let mut temp_file = NamedTempFile::new().expect("Cannot create temp file");
-    temp_file.write_all(GAS_COSTS_FILE.as_bytes()).expect("Cannot write to temp file");
+    temp_file
+        .write_all(GAS_COSTS_FILE.as_bytes())
+        .expect("Cannot write to temp file");
     temp_file.flush().expect("Cannot flush temp file");
     let temp_path = temp_file.path().to_path_buf();
     // Note: GasCosts can only be initialized from a file :-/
@@ -42,7 +46,6 @@ fn main() {
     let unit_test_functions = get_wasm_functions(bytecode.as_slice(), test_filter);
 
     for f in unit_test_functions {
-
         println!("Running unit test: {f}");
 
         let exec_limits = CondomLimits::default();
@@ -54,7 +57,7 @@ fn main() {
             Compiler::SP,
             exec_limits.clone(),
         )
-            .unwrap();
+        .unwrap();
 
         let res = run_function(
             &*interface,
@@ -66,13 +69,12 @@ fn main() {
             exec_limits.clone(),
         );
 
-        println!("wasm vm res: {res:?}");
+        println!("wasm vm res: {res:#?}");
     }
 }
 
 fn get_wasm_functions(wasm_content: &[u8], test_filter: Option<String>) -> Vec<String> {
-
-    use wasmer::{Engine, Module, Store, ExternType};
+    use wasmer::{Engine, ExternType, Module, Store};
 
     let engine = Engine::default();
     let store = Store::new(engine);
@@ -81,7 +83,9 @@ fn get_wasm_functions(wasm_content: &[u8], test_filter: Option<String>) -> Vec<S
     module
         .exports()
         .filter_map(|export| {
-            if let ExternType::Function(_f) = export.ty() && export.name().starts_with(UNIT_TEST_PREFIX) {
+            if let ExternType::Function(_f) = export.ty()
+                && export.name().starts_with(UNIT_TEST_PREFIX)
+            {
                 if let Some(filter) = &test_filter {
                     if export.name().find(filter).is_some() {
                         // Test name matched the test filter

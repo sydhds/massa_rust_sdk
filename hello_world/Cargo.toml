@@ -13,3 +13,8 @@ bytemuck = { version = "1.23", features = ["must_cast"] }
 
 # [target.wasm32-unknown-unknown]
 # runner = "target/debug/massa_sc_runner"
+
+[profile.release]
+lto = "fat"
+strip = true
+# panic = "abort"

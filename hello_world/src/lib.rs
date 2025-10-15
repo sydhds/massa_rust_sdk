@@ -2,72 +2,42 @@
 
 extern crate alloc;
 // rust crates
-use alloc::vec::Vec;
-use alloc::{format, vec};
+use alloc::format;
 // internal
-use massa_rust_sc::{generateEvent, string_to_as_array, to_as_array, get_data, set_data,
-                    //has_data
-};
+use massa_rust_sc::{generate_event, get_data, set_data, to_as_array, to_as_slice, AsSlice, AsVec};
 // third-party
 use utf16_lit::utf16;
 
 // constants
 
-const EXAMPLE: &[u8] = string_to_as_array!("massa_rust_sdk");
-const KEY: &[u8] = string_to_as_array!("greeting_key");
-const VALUE: &[u8] = string_to_as_array!("hello");
+const EXAMPLE: AsSlice<u8> = to_as_slice!("massa_rust_sdk");
+const KEY: AsSlice<u8> = to_as_slice!("greeting_key");
+const VALUE: AsSlice<u8> = to_as_slice!("hello");
 
 // end constants
 
 #[no_mangle]
 extern "C" fn constructor() {
-
     // Use generateEvent
     // Note: generateEvent requires an UTF16 encoded string as input
-    unsafe {
-        let ptr = EXAMPLE.as_ptr().offset(4);
-        generateEvent(ptr as i32);
-    }
+    generate_event(EXAMPLE);
 
     // Use generateEvent but with dynamic data (dynamic Rust string)
-    let msg = format!("hello there {}!!", 42);
-    unsafe {
-        let msg_utf16 = msg.encode_utf16().collect::<Vec<u16>>();
-        let msg_utf16_slice = msg_utf16.as_slice();
-        let msg_utf8: &[u8] = bytemuck::cast_slice(msg_utf16_slice);
-
-        let mut msg_final = vec![0; 4 + msg_utf8.len()];
-        msg_final[0..4].copy_from_slice(msg_utf8.len().to_le_bytes().as_slice());
-        msg_final[4..].copy_from_slice(msg_utf8);
-        let ptr = msg_final.as_ptr().offset(4);
-        generateEvent(ptr as i32);
-    }
+    let msg = format!("hello there {}!!", 900);
+    let msg_utf16 = msg.encode_utf16().collect::<AsVec<u16>>();
+    generate_event(msg_utf16);
 
     // Storage set
     {
         // Set our value in smart contract storage
-        unsafe {
-            let key_ptr = KEY.as_ptr().offset(4) as i32;
-            let value_ptr = VALUE.as_ptr().offset(4) as i32;
-            // generateEvent(value_ptr);
-            set_data(key_ptr, value_ptr);
-            // assert!(has_data(key_ptr));
-        }
+        set_data(KEY, VALUE);
     }
 }
 
 #[no_mangle]
-extern "C" fn hello() -> *mut u8 {
-
-
-    #[allow(clippy::let_and_return)]
-    let value_ptr = unsafe {
-        let key_ptr = KEY.as_ptr().offset(4); // as i32;
-        let value_ptr = get_data(key_ptr as i32);
-        value_ptr as *mut u8
-    };
-
-    value_ptr
+extern "C" fn hello() -> *const u8 {
+    let ptr = get_data(KEY);
+    ptr as *const u8
 }
 
 #[cfg_attr(not(test), panic_handler)]
@@ -79,46 +49,35 @@ fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core::ptr::slice_from_raw_parts;
-    use core::slice;
-    use massa_rust_sc::has_data;
+    use core::ops::Deref;
+    use massa_rust_sc::{has_data, AsSlice};
 
     #[test]
     #[no_mangle]
     fn __MASSA_RUST_SDK_UNIT_TEST_hello_1() {
-
         // Storage set (before calling hello())
-        const T_KEY: &[u8] = string_to_as_array!("greeting_key");
-        const T_VALUE: &[u8] = string_to_as_array!("hellw");
+        const T_KEY: AsSlice<u8> = to_as_slice!("greeting_key");
+        const T_VALUE: AsSlice<u8> = to_as_slice!("hellw");
 
-        unsafe {
-            let key_ptr = T_KEY.as_ptr().offset(4) as i32;
-            let value_ptr = T_VALUE.as_ptr().offset(4) as i32;
-            generateEvent(value_ptr);
-            set_data(key_ptr, value_ptr);
-            assert!(has_data(key_ptr));
-        }
+        generate_event(T_VALUE);
+        set_data(T_KEY, T_VALUE);
+        assert!(has_data(T_KEY));
 
         // Now call hello()
-
         let res_ptr = hello();
 
-        let res_size = unsafe {
-            let res_size_ptr = res_ptr.offset(-4);
-            let slice = slice::from_raw_parts(res_size_ptr, 4);
-            u32::from_le_bytes(slice.try_into().unwrap())
-        };
+        {
+            // With AsSlice<u8>
+            let res: AsSlice<u8> = AsSlice::from(res_ptr);
+            let expected = bytemuck::must_cast_slice(&utf16!("hellw"));
+            assert_eq!(res.deref(), expected);
+        }
 
-        assert_eq!(res_size, 10);
-
-        let res_msg = unsafe {
-            slice_from_raw_parts(res_ptr, res_size as usize)
-                .as_ref()
-                .unwrap()
-        };
-
-        // let expected = [104, 0, 101, 0, 108, 0, 108, 0, 119, 0];
-        let expected = bytemuck::must_cast_slice(&utf16!("hellw"));
-        assert_eq!(res_msg, expected);
+        {
+            // With AsSlice<u16>
+            // let res: AsSlice<u16> = AsSlice::from(res_ptr);
+            let res = AsSlice::<u16>::from(res_ptr);
+            assert_eq!(res.deref(), utf16!("hellw"));
+        }
     }
 }
