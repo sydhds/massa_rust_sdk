@@ -8,9 +8,14 @@ Early birds && developers are welcome to contribute. Please have a look at the [
 
 ## Architecture
 
+Crates:
+
 * massa_rust_sc: Helpers for Rust-written smart contract
 * massa_sc_runner: Unit tests runner (Rust-written unit tests in smart contracts)
 * massa_rust_web3: Crate for interacting with smart contract (aka JsonRPC & Grpc)
+
+Examples:
+
 * hello_world: Example of Rust smart contract
 * hello_world_scripts: Example of scripts to interact with the hello_world smart contract example
 
