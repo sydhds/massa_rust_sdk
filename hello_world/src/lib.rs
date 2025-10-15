@@ -51,10 +51,11 @@ mod tests {
     use super::*;
     use core::ops::Deref;
     use massa_rust_sc::{has_data, AsSlice};
+    use wasm_test::*;
+    use crate::alloc::string::ToString;
 
-    #[test]
-    #[no_mangle]
-    fn __MASSA_RUST_SDK_UNIT_TEST_hello_1() {
+    #[wasm_test]
+    fn test_hello_1() {
         // Storage set (before calling hello())
         const T_KEY: AsSlice<u8> = to_as_slice!("greeting_key");
         const T_VALUE: AsSlice<u8> = to_as_slice!("hellw");
@@ -69,7 +70,7 @@ mod tests {
         {
             // With AsSlice<u8>
             let res: AsSlice<u8> = AsSlice::from(res_ptr);
-            let expected = bytemuck::must_cast_slice(&utf16!("hellw"));
+            let expected: &[u8] = bytemuck::must_cast_slice(&utf16!("hellw"));
             assert_eq!(res.deref(), expected);
         }
 

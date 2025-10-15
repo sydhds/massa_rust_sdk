@@ -1580,6 +1580,7 @@ dependencies = [
  "bytemuck",
  "massa_rust_sc",
  "utf16_lit",
+ "wasm-test",
 ]
 
 [[package]]
