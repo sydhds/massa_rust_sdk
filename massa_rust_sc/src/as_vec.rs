@@ -175,10 +175,10 @@ impl<T: Pod> AsMemoryModel for AsVec<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::string::ToString;
     use crate::{generate_event, get_data, set_data, AsSlice};
     use alloc::format;
     use wasm_test::*;
-    use crate::alloc::string::ToString;
 
     #[wasm_test]
     fn test_as_vec_append() {

@@ -49,10 +49,10 @@ fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::string::ToString;
     use core::ops::Deref;
     use massa_rust_sc::{has_data, AsSlice};
     use wasm_test::*;
-    use crate::alloc::string::ToString;
 
     #[wasm_test]
     fn test_hello_1() {
