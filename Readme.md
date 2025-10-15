@@ -34,7 +34,7 @@ Tested with `cargo 1.90.0-nightly (eabb4cd92 2025-07-09)`
 
 ### Unit tests
 
-* cargo +1.88 build -p massa_sc_runner
+* cargo build -p massa_sc_runner
 * RUSTFLAGS="-Ctarget-cpu=mvp -Ctarget-feature=+bulk-memory" cargo +nightly test -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown -p hello_world
 
 Or manually:
