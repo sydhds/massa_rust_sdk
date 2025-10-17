@@ -12,9 +12,12 @@ mod as_slice;
 mod as_vec;
 mod memory;
 
-use lol_alloc::LeakingPageAllocator;
+use lol_alloc::{AssumeSingleThreaded, LeakingPageAllocator, LeakingAllocator};
 #[global_allocator]
-static ALLOCATOR: LeakingPageAllocator = LeakingPageAllocator;
+// static ALLOCATOR: LeakingPageAllocator = LeakingPageAllocator;
+static ALLOCATOR: AssumeSingleThreaded<LeakingAllocator> = unsafe {
+    AssumeSingleThreaded::new(LeakingAllocator::new())
+};
 
 extern crate alloc;
 use crate::memory::AsMemoryModel;

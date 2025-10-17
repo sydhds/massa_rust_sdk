@@ -23,7 +23,7 @@ extern "C" fn constructor() {
     generate_event(EXAMPLE);
 
     // Use generateEvent but with dynamic data (dynamic Rust string)
-    let msg = format!("hello there {}!!", 900);
+    let msg = format!("hello there {}!!", 901);
     let msg_utf16 = msg.encode_utf16().collect::<AsVec<u16>>();
     generate_event(msg_utf16);
 
