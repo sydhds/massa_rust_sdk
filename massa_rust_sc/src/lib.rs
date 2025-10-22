@@ -11,6 +11,7 @@
 mod as_slice;
 mod as_vec;
 mod memory;
+mod context;
 
 use lol_alloc::LeakingPageAllocator;
 #[global_allocator]
@@ -23,6 +24,7 @@ use alloc::vec;
 // export
 pub use as_slice::{to_as_array, AsArray, AsSlice};
 pub use as_vec::AsVec;
+pub use context::is_deploying_contract;
 
 #[link(wasm_import_module = "massa")]
 extern "C" {
@@ -57,6 +59,16 @@ extern "C" {
     /// Return: a boolean value
     #[link_name = "assembly_script_has_data"]
     pub fn assembly_script_has_data(key: i32) -> bool;
+
+    /// Return true if the caller has write access to the contract
+    #[link_name = "assembly_script_caller_has_write_access"]
+    pub fn assembly_script_caller_has_write_access() -> bool;
+
+    /// Returns the addresses in the call stack, from the bottom to the top.
+    ///
+    /// Return: a string of the addresses (utf16 string in json format)
+    #[link_name = "assembly_script_get_call_stack"]
+    pub fn assembly_script_get_call_stack() -> i32;
 }
 
 #[no_mangle]
@@ -74,33 +86,13 @@ extern "C" fn __new(size: usize, _id: i32) -> *mut u8 {
     unsafe { v.leak().as_mut_ptr().add(HEADER_SIZE) }
 }
 
-/*
-pub const fn to_as_array<const N: usize>(v: &[u8]) -> [u8; N] {
-    let mut dst: [u8; N] = [0u8; N];
-    let (a1, a2) = dst.split_at_mut(4);
-    a1.copy_from_slice((v.len() as u32).to_le_bytes().as_slice());
-    a2.copy_from_slice(v);
-    dst
+#[no_mangle]
+extern "C" fn __pin(ptr: usize) -> usize {
+    // https://www.assemblyscript.org/runtime.html#interface
+    // function __pin(ptr: usize): usize
+    // https://github.com/AssemblyScript/assemblyscript/blob/main/std/assembly/rt/itcms.ts#L334
+    ptr
 }
-
-#[macro_export]
-macro_rules! string_to_as_array {
-    ($key:expr) => {{
-        const K__: &[u16] = &utf16!($key);
-        const K_U8__: &[u8] = bytemuck::must_cast_slice(K__);
-        const N__: usize = K_U8__.len();
-        to_as_array::<{N__ + 4}>(K_U8__).as_slice()
-    }};
-}
-*/
-
-/*
-#[panic_handler]
-fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
-    // emit a wasm unreachable instruction if a panic occurs in our code
-    core::arch::wasm32::unreachable()
-}
-*/
 
 pub fn generate_event<T: AsMemoryModel>(event: T) {
     unsafe {
@@ -120,4 +112,9 @@ pub fn get_data<T: AsMemoryModel>(key: T) -> i32 {
 
 pub fn has_data<T: AsMemoryModel>(key: T) -> bool {
     unsafe { assembly_script_has_data(key.as_ptr_data()) }
+}
+
+/// Return true if the caller has write access to the contract
+pub fn caller_has_write_access() -> bool {
+    unsafe { assembly_script_caller_has_write_access() }
 }
