@@ -29,8 +29,9 @@ pub fn is_deploying_contract() -> bool {
             let s = String::from_utf16_lossy(call_stack.deref());
             let mut s1_split = s[1..s.len() - 1].rsplit(",");
 
-            let callee = s1_split.next().unwrap_or("");
-            let caller = s1_split.next().unwrap_or("");
+            // TODO / FIXME: unwrap here or return empty str & check if not empty?
+            let callee = s1_split.next().unwrap();
+            let caller = s1_split.next().unwrap();
 
             // in isDeployingContract, checks is done with Address objects,
             // and an Address object is just a wrapper of a string (utf16 string)

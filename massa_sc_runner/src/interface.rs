@@ -272,7 +272,7 @@ impl Interface for MassaScRunnerInterface {
     }
 
     fn caller_has_write_access(&self) -> massa_sc_runtime::Result<bool> {
-        todo!()
+        Ok(true)
     }
 
     fn hash(&self, data: &[u8]) -> massa_sc_runtime::Result<[u8; 32]> {
@@ -358,7 +358,12 @@ impl Interface for MassaScRunnerInterface {
     }
 
     fn get_call_stack(&self) -> massa_sc_runtime::Result<Vec<String>> {
-        todo!()
+        Ok(
+            vec![
+                "AU1Yvq49utdezr496dHbRj3TMjqsCh2awggjfGraHoddE7XfEkpY".to_string(),
+                "AS1GFocKuZKiSr2Gcu8y69fraPEqs7xYWvEFikTKcThYC38sBFBH".to_string(),
+            ]
+        )
     }
 
     #[named]

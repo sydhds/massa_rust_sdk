@@ -4,7 +4,11 @@ extern crate alloc;
 // rust crates
 use alloc::format;
 // internal
-use massa_rust_sc::{generate_event, get_data, is_deploying_contract, set_data, to_as_array, to_as_slice, AsSlice, AsVec};
+use massa_rust_sc::{
+    generate_event, get_data, is_deploying_contract, set_data,
+    to_as_array, to_as_slice,
+    AsSlice, AsVec
+};
 // third-party
 use utf16_lit::utf16;
 
