@@ -7,3 +7,6 @@ edition = "2021"
 lol_alloc = "0.4"
 utf16_lit = "2.0.2"
 bytemuck = { version = "1.23", features = ["must_cast"] }
+
+[dev-dependencies]
+wasm-test = { git="https://github.com/rambip/wasm-test" }
