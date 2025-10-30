@@ -1,6 +1,7 @@
 mod deploy;
 
 use std::collections::VecDeque;
+use std::error::Error;
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
@@ -8,16 +9,24 @@ use std::time::Duration;
 use jsonrpsee::core::{Serialize, client};
 use jsonrpsee::tokio::io::AsyncReadExt;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params, tokio};
+use jsonrpsee::core::params::ArrayParams;
+use jsonrpsee::core::traits::ToRpcParams;
+use jsonrpsee::http_client::HttpClient;
 use serde::Deserialize;
 use tracing::debug;
 // massa
-use massa_api_exports::node::NodeStatus;
-use massa_api_exports::operation::{OperationInfo, OperationInput};
-use massa_models::operation::SecureShareOperation;
+use massa_api_exports::{
+    node::NodeStatus,
+    operation::{OperationInfo, OperationInput},
+    address::AddressInfo,
+    execution::ReadOnlyBytecodeExecution,
+    execution::{ExecuteReadOnlyResponse, ReadOnlyCall, ReadOnlyResult},
+};
+use massa_models::{
+    operation::SecureShareOperation,
+    datastore::DatastoreSerializer,
+};
 // massa re exports
-use massa_api_exports::execution::ReadOnlyBytecodeExecution;
-pub use massa_api_exports::execution::{ExecuteReadOnlyResponse, ReadOnlyCall, ReadOnlyResult};
-use massa_models::datastore::DatastoreSerializer;
 pub use massa_models::{
     address::Address,
     amount::Amount,
@@ -31,6 +40,7 @@ pub use massa_models::{
 };
 use massa_serialization::{SerializeError, Serializer};
 pub use massa_signature::KeyPair;
+use serde::de::DeserializeOwned;
 // use reqwest::Url;
 // internal
 use crate::deploy::DEPLOYER_BYTECODE;
@@ -38,21 +48,64 @@ use crate::deploy::DEPLOYER_BYTECODE;
 pub const BUILDNET_URL: &str = "https://buildnet.massa.net/api/v2";
 pub const BUILDNET_CHAINID: u64 = 77658366;
 
-/*
 trait MassaJsonRpc {
 
-    type Error;
+    type RpcParameters;
+    type RpcError;
 
-    async fn post<P, R, E: std::error::Error>(&self, url: impl AsRef<str>, params: P) -> Result<R, E>;
+    // async fn post<R: DeserializeOwned + for<'a> Deserialize<'a>>(&self, method: &str, params: Self::RpcParameters) -> Result<R, Self::RpcError>;
+    async fn post<R: DeserializeOwned>(&self, method: &str, params: Self::RpcParameters) -> Result<R, Self::RpcError>;
 
-    fn empty_params<P>() -> P;
+    fn prepare_params<T: Serialize>(params: T) -> Self::RpcParameters;
 
-    async fn get_status<P, E: std::error::Error>(&self, url: impl AsRef<str>) -> Result<NodeStatus, E> {
-        // let params = Self::empty_params();
-        self.post(url, Self::empty_params()).await
+    fn empty_params() -> Self::RpcParameters;
+
+    async fn get_status(&self) -> Result<NodeStatus, Self::RpcError> {
+        self.post( "get_status", Self::empty_params()).await
+    }
+
+    async fn get_addresses(&self, addresses: Vec<Address>) -> Result<Vec<AddressInfo>, Self::RpcError> {
+        let params = Self::prepare_params(addresses);
+        self.post( "get_addresses", params).await
     }
 }
-*/
+
+struct MassaRpcClient {
+    client: HttpClient,
+}
+
+impl MassaRpcClient {
+    pub fn new(url: impl AsRef<str>) -> Self {
+        Self {
+            client: HttpClientBuilder::default().build(url).unwrap(),
+        }
+    }
+}
+
+impl MassaJsonRpc for MassaRpcClient {
+    type RpcParameters = ArrayParams;
+    type RpcError = client::Error;
+
+    async fn post<R: DeserializeOwned>(&self, method: &str, params: Self::RpcParameters) -> Result<R, Self::RpcError> {
+        self.client.request(method, params).await
+    }
+
+    fn prepare_params<T: Serialize>(params: T) -> Self::RpcParameters {
+        rpc_params![params]
+    }
+
+    fn empty_params() -> Self::RpcParameters {
+        rpc_params![]
+    }
+}
+
+pub async fn get_addresses(url: impl AsRef<str>, addresses: Vec<Address>) -> Result<Vec<AddressInfo>, client::Error> {
+    let client = HttpClientBuilder::default().build(url)?;
+    let params = rpc_params![
+        addresses
+    ];
+    client.request("get_addresses", params).await
+}
 
 pub async fn get_status(url: impl AsRef<str>) -> Result<NodeStatus, client::Error> {
     let client = HttpClientBuilder::default().build(url)?;
@@ -561,9 +614,39 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_status() {
-        let node_status = get_status(BUILDNET_URL).await.unwrap();
+
+        let client = MassaRpcClient::new(BUILDNET_URL);
+        let node_status = client.get_status().await.unwrap(); //  get_status(BUILDNET_URL).await.unwrap();
         println!("{}", "#".repeat(20));
         println!("Node status: {}", node_status);
         assert_eq!(node_status.chain_id, BUILDNET_CHAINID);
     }
+
+    #[tokio::test]
+    async fn test_get_addresses() {
+        let addresses = vec![
+            Address::from_str("AU1Yvq49utdezr496dHbRj3TMjqsCh2awggjfGraHoddE7XfEkpY").unwrap(),
+        ];
+        let client = MassaRpcClient::new(BUILDNET_URL);
+        let addresses_info = client.get_addresses(addresses.clone()).await.unwrap();
+        println!("{}", "#".repeat(20));
+        println!("Addresses info: {:?}", addresses_info);
+    }
+
+    /*
+    #[tokio::test]
+    async fn test_get_addresses() {
+
+        let addresses = vec![
+            Address::from_str("AU1Yvq49utdezr496dHbRj3TMjqsCh2awggjfGraHoddE7XfEkpY").unwrap(),
+        ];
+        let addresses_info = get_addresses(BUILDNET_URL, addresses.clone()).await.unwrap();
+        println!("{}", "#".repeat(20));
+        println!("Addresses info: {:?}", addresses_info);
+        assert_eq!(addresses_info.len(), 1);
+        assert_eq!(addresses_info[0].address, addresses[0]);
+        assert_eq!(addresses_info[0].thread, 9);
+        // assert_eq!(node_status.chain_id, BUILDNET_CHAINID);
+    }
+    */
 }
