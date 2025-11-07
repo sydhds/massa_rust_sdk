@@ -1,8 +1,6 @@
-use clap::Parser;
-use massa_rust_web3::{
-    Address, BUILDNET_URL, ReadOnlyCall, ReadOnlyResult, execute_read_only_call,
-};
 use std::str::FromStr;
+use clap::Parser;
+use massa_rust_web3::{Address, BUILDNET_URL, ReadOnlyCall, ReadOnlyResult, MassaRpcClient, MassaJsonRpc};
 
 const CONTRACT_ADDRESS: &str = "AS1AArefHYqYd9KB8wcCkvgesDap2teidRdwPJA22DpZqFxPUxuY";
 const CALLER_ADDRESS: &str = "AU12NTxUbAFvHzrLH3XKwxkNgsjPqiAadnbthJz2v1TuNJEyWU2Cx";
@@ -45,7 +43,8 @@ async fn main() {
         fee: None,
     };
 
-    let hello = execute_read_only_call(BUILDNET_URL, vec![read_params_])
+    let client = MassaRpcClient::new(BUILDNET_URL);
+    let hello = client.execute_read_only_call(vec![read_params_])
         .await
         .unwrap();
 
