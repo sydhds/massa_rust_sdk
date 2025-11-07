@@ -21,6 +21,7 @@ use massa_signature::KeyPair;
 
 use crate::BUILDNET_CHAINID;
 
+#[bitte::bitte]
 pub trait MassaJsonRpc {
 
     type RpcParameters;
@@ -39,7 +40,7 @@ pub trait MassaJsonRpc {
 
     async fn get_addresses(&self, addresses: Vec<Address>) -> Result<Vec<AddressInfo>, Self::RpcError> {
         let params = Self::prepare_params(addresses);
-        self.post( "get_addresses", params).await
+        self.post("get_addresses", params).await
     }
 
     async fn get_filtered_sc_output_event(&self, event_filter: EventFilter) -> Result<Vec<SCOutputEvent>, Self::RpcError> {

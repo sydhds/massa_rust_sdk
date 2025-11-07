@@ -23,8 +23,9 @@ impl MassaJsonRpc for MassaRpcClient {
     type RpcParameters = serde_json::Value;
     type RpcError = reqwest::Error;
 
-    async fn post<R: DeserializeOwned>(&self, method: &str, params: Self::RpcParameters) -> Result<R, Self::RpcError> {
+    async fn post<R: DeserializeOwned>(&self, method: &str, mut params: Self::RpcParameters) -> Result<R, Self::RpcError> {
 
+        #[allow(dead_code)]
         #[derive(Debug, Deserialize)]
         struct Response<R> {
             jsonrpc: String,
@@ -33,6 +34,12 @@ impl MassaJsonRpc for MassaRpcClient {
         }
 
         let url = format!("{}/{method}", self.url);
+        // unwrap safe - prepare_params always returns a JSON object
+        params
+            .as_object_mut()
+            .unwrap()
+            .insert("method".to_string(), json!(method));
+
         let resp: Response<R> = self
             .client
             .post(url)
@@ -48,8 +55,8 @@ impl MassaJsonRpc for MassaRpcClient {
     fn prepare_params<T: Serialize>(params: T) -> Self::RpcParameters {
         json!({
                 "jsonrpc": "2.0",
-                "method": "get_status",
-                "params": params,
+                "method": "",
+                "params": [params],
                 "id": 1
             })
     }
@@ -57,7 +64,7 @@ impl MassaJsonRpc for MassaRpcClient {
     fn empty_params() -> Self::RpcParameters {
         json!({
                 "jsonrpc": "2.0",
-                "method": "get_status",
+                "method": "",
                 "params": [],
                 "id": 1
             })
