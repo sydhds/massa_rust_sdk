@@ -8,6 +8,7 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 tracing = "0.1"
 tokio = { version = "1" }
+bitte = { version = "0.0.1", features = ["threads"] }
 # massa deps
 massa_api_exports = { git = "https://github.com/massalabs/massa", package = "massa_api_exports" }
 massa_models = { git = "https://github.com/massalabs/massa", package = "massa_models" }
@@ -17,7 +18,6 @@ massa_serialization = { git = "https://github.com/massalabs/massa", package = "m
 reqwest = { version = "0.12", default-features = false, features = ["default-tls", "json"], optional = true }
 serde_json = { version = "1", optional = true }
 jsonrpsee = { version = "0.26", features = ["full"], optional = true }
-bitte = { version = "0.0.1", features = ["threads"] }
 
 [features]
 default = ["jsonrpsee"]

@@ -6,7 +6,6 @@ mod jsonrpc;
 mod jsonrpc_reqwest;
 mod deploy_sc;
 
-
 // exports
 pub use jsonrpc_common::MassaJsonRpc;
 #[cfg(feature = "jsonrpsee")]
