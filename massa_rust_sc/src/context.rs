@@ -1,6 +1,6 @@
-use alloc::string::String;
-use core::ops::Deref;
 use crate::{assembly_script_get_call_stack, caller_has_write_access, AsSlice};
+
+const COMMA_CHAR: u16 = 44; // == ','
 
 /// Return true if the smart contract is currently being deployed
 ///
@@ -23,23 +23,50 @@ pub fn is_deploying_contract() -> bool {
             // but encoded as utf16 string (see as-ffi-bindings - string_ptr.rs file for details)
             let call_stack = AsSlice::<u16>::from(call_stack as *const u8) ;
 
-            // TODO: extract caller & callee as u16 slice & compare
-            //       no allocation would be needed
-
-            let s = String::from_utf16_lossy(call_stack.deref());
-            let mut s1_split = s[1..s.len() - 1].rsplit(",");
-
-            // TODO / FIXME: unwrap here or return empty str & check if not empty?
-            let callee = s1_split.next().unwrap();
-            let caller = s1_split.next().unwrap();
+            let mut call_stack_split = call_stack
+                .as_ref()
+                [1..call_stack.len() - 1] // remove '[' && ']' characters
+                .rsplitn(2, |c| *c == COMMA_CHAR); // 44 is the ',' character
+            // Unwrap safe: assume call_stack string is formatted as expected (see the above comment)
+            let callee = call_stack_split.next().unwrap();
+            let caller = call_stack_split.next().unwrap();
 
             // in isDeployingContract, checks is done with Address objects,
             // and an Address object is just a wrapper of a string (utf16 string)
             // https://github.com/massalabs/massa-as-sdk/blob/main/assembly/std/address.ts
+            // Note: slicing with 2..len - 2 is to remove the following characters: \"
             callee[2..callee.len() - 2] != caller[2..caller.len() - 2]
 
         } else {
             false
         }
     }
+}
+
+pub fn call_stack<'a>() -> AsSlice<'a, u16> {
+    unsafe {
+        let call_stack = assembly_script_get_call_stack();
+        let call_stack = AsSlice::<u16>::from(call_stack as *const u8);
+        call_stack
+    }
+}
+
+pub fn callee<'a>(call_stack: &'a AsSlice<'a, u16>) -> &'a [u16] {
+    let mut call_stack_split = call_stack
+        .as_ref()
+        [1..call_stack.len() - 1] // remove '[' && ']' characters
+        .rsplitn(1, |c| *c == COMMA_CHAR); // 44 is the ',' character
+    // Unwrap safe: assume call_stack string is formatted as expected (see the above comment)
+    let callee = call_stack_split.next().unwrap();
+    &callee[2..callee.len() - 2]
+}
+
+pub fn caller<'a>(call_stack: &'a AsSlice<'a, u16>) -> &'a [u16] {
+    let mut call_stack_split = call_stack
+        .as_ref()
+        [1..call_stack.len() - 1] // remove '[' && ']' characters
+        .rsplitn(1, |c| *c == COMMA_CHAR); // 44 is the ',' character
+    let _callee = call_stack_split.next().unwrap();
+    let caller = call_stack_split.next().unwrap();
+    &caller[2..caller.len() - 2]
 }
