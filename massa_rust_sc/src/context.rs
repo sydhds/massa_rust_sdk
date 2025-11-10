@@ -21,7 +21,7 @@ pub fn is_deploying_contract() -> bool {
             // Note: assembly_script_get_call_stack return something like:
             //       let s1 = r#"[\"AU1Yvq49utdezr496dHbRj3TMjqsCh2awggjfGraHoddE7XfEkpY\",\"AS12mb3TqNpeers7FRDpYR9XDaFHFxXaG9SuQ1yU778QdjZUa8eQ7\"]"#;
             // but encoded as utf16 string (see as-ffi-bindings - string_ptr.rs file for details)
-            let call_stack = AsSlice::<u16>::from(call_stack as *const u8) ;
+            let call_stack = AsSlice::<u16>::from(call_stack as *const u8);
 
             let mut call_stack_split = call_stack
                 .as_ref()
@@ -43,9 +43,12 @@ pub fn is_deploying_contract() -> bool {
     }
 }
 
-pub fn call_stack<'a>() -> AsSlice<'a, u16> {
+pub fn get_call_stack<'a>() -> AsSlice<'a, u16> {
     unsafe {
         let call_stack = assembly_script_get_call_stack();
+        // Note: assembly_script_get_call_stack return something like:
+        //       let s1 = r#"[\"AU1Yvq49utdezr496dHbRj3TMjqsCh2awggjfGraHoddE7XfEkpY\",\"AS12mb3TqNpeers7FRDpYR9XDaFHFxXaG9SuQ1yU778QdjZUa8eQ7\"]"#;
+        // but encoded as utf16 string (see as-ffi-bindings - string_ptr.rs file for details)
         let call_stack = AsSlice::<u16>::from(call_stack as *const u8);
         call_stack
     }
