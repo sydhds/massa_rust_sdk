@@ -69,6 +69,18 @@ extern "C" {
     /// Return: a string of the addresses (utf16 string in json format)
     #[link_name = "assembly_script_get_call_stack"]
     pub fn assembly_script_get_call_stack() -> i32;
+
+    #[link_name = "assembly_script_get_balance"]
+    pub fn assembly_script_get_balance() -> u64;
+
+    #[link_name = "assembly_script_get_call_coins"]
+    pub fn assembly_script_get_call_coins() -> u64;
+
+    #[link_name = "assembly_script_chain_id"]
+    pub fn assembly_script_chain_id() -> u64;
+
+    #[link_name = "assembly_script_get_remaining_gas"]
+    pub fn  assembly_script_get_remaining_gas() -> u64;
 }
 
 #[no_mangle]
@@ -117,4 +129,32 @@ pub fn has_data<T: AsMemoryModel>(key: T) -> bool {
 /// Return true if the caller has write access to the contract
 pub fn caller_has_write_access() -> bool {
     unsafe { assembly_script_caller_has_write_access() }
+}
+
+/// Return the balance of the current account
+pub fn get_balance() -> u64 {
+    unsafe { assembly_script_get_balance() }
+}
+
+/// Returns the amount transferred in the current call.
+///
+/// The returned value is related to the `coins` argument sent along the call.
+/// It is not related to the transferCoins or transferCoinsOf functions.
+pub fn get_call_coins() -> u64 {
+    unsafe { assembly_script_get_call_coins() }
+}
+
+/// Return the current chain id
+///
+/// The chain id is a unique identifier for MAINNET, BUILDNET, ...
+pub fn chain_id() -> u64 {
+    unsafe { assembly_script_chain_id() }
+}
+
+/// Returns the remaining gas for the current smart contract execution.
+///
+/// Gas is a measure of the computational resources required to execute a transaction on the blockchain.
+/// When there is no more gas, the execution of the smart contract is interrupted and all the transactions are reversed.
+pub fn get_remaining_gas() -> u64 {
+    unsafe { assembly_script_get_remaining_gas() }
 }

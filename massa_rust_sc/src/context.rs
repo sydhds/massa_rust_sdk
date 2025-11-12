@@ -1,5 +1,6 @@
 use crate::{assembly_script_get_call_stack, caller_has_write_access, AsSlice};
 
+// https://doc.rust-lang.org/std/ascii/enum.Char.html#variant.Comma
 const COMMA_CHAR: u16 = 44; // == ','
 
 /// Return true if the smart contract is currently being deployed
@@ -26,10 +27,12 @@ pub fn is_deploying_contract() -> bool {
             let mut call_stack_split = call_stack
                 .as_ref()
                 [1..call_stack.len() - 1] // remove '[' && ']' characters
-                .rsplitn(2, |c| *c == COMMA_CHAR); // 44 is the ',' character
+                .rsplitn(2, |c| *c == COMMA_CHAR);
+
             // Unwrap safe: assume call_stack string is formatted as expected (see the above comment)
             let callee = call_stack_split.next().unwrap();
-            let caller = call_stack_split.next().unwrap();
+            // Note: call stack len can be < 2. In this case, in massa-as-sdk code, callee is returned as caller
+            let caller = call_stack_split.next().unwrap_or(callee);
 
             // in isDeployingContract, checks is done with Address objects,
             // and an Address object is just a wrapper of a string (utf16 string)
@@ -43,6 +46,7 @@ pub fn is_deploying_contract() -> bool {
     }
 }
 
+
 pub fn get_call_stack<'a>() -> AsSlice<'a, u16> {
     unsafe {
         let call_stack = assembly_script_get_call_stack();
@@ -54,22 +58,47 @@ pub fn get_call_stack<'a>() -> AsSlice<'a, u16> {
     }
 }
 
+/// Returns the address of the currently executing smart contract.
+///
+/// The "callee" refers to the contract that is currently being executed.
 pub fn callee<'a>(call_stack: &'a AsSlice<'a, u16>) -> &'a [u16] {
     let mut call_stack_split = call_stack
         .as_ref()
         [1..call_stack.len() - 1] // remove '[' && ']' characters
-        .rsplitn(1, |c| *c == COMMA_CHAR); // 44 is the ',' character
+        .rsplitn(1, |c| *c == COMMA_CHAR);
     // Unwrap safe: assume call_stack string is formatted as expected (see the above comment)
     let callee = call_stack_split.next().unwrap();
     &callee[2..callee.len() - 2]
 }
 
+/// Returns the `address` of the `caller` of the currently executing smart contract.
+///
+/// The caller is the person or the smart contract that directly called
+/// the pending function.
 pub fn caller<'a>(call_stack: &'a AsSlice<'a, u16>) -> &'a [u16] {
     let mut call_stack_split = call_stack
         .as_ref()
         [1..call_stack.len() - 1] // remove '[' && ']' characters
-        .rsplitn(1, |c| *c == COMMA_CHAR); // 44 is the ',' character
-    let _callee = call_stack_split.next().unwrap();
-    let caller = call_stack_split.next().unwrap();
-    &caller[2..caller.len() - 2]
+        .rsplitn(1, |c| *c == COMMA_CHAR);
+    let callee = call_stack_split.next().unwrap();
+    // Note: call stack len can be < 2. In this case, in massa-as-sdk code, callee is returned as caller
+    let caller = call_stack_split.next();
+
+    if caller.is_none() {
+        &callee[2..callee.len() - 2]
+    } else {
+        let caller = caller.unwrap();
+        &caller[2..caller.len() - 2]
+    }
 }
+
+/// Returns the address of the initial transaction creator (originator).
+pub fn transaction_creator<'a>(call_stack: &'a AsSlice<'a, u16>) -> &'a [u16] {
+    let mut call_stack_split = call_stack
+        .as_ref()
+        [1..call_stack.len() - 1] // remove '[' && ']' characters
+        .splitn(1, |c| *c == COMMA_CHAR);
+    let creator = call_stack_split.next().unwrap();
+    &creator[2..creator.len() - 2]
+}
+
