@@ -6,6 +6,7 @@ use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tracing::debug;
 // massa
+use massa_api_exports::execution::ReadOnlyBytecodeExecution;
 use massa_models::address::Address;
 use massa_models::amount::Amount;
 use massa_models::datastore::{Datastore, DatastoreSerializer};
@@ -13,7 +14,6 @@ use massa_models::execution::EventFilter;
 use massa_models::operation::{Operation, OperationType};
 use massa_serialization::{SerializeError, Serializer};
 use massa_signature::KeyPair;
-use massa_api_exports::execution::ReadOnlyBytecodeExecution;
 // internal
 use crate::deploy::DEPLOYER_BYTECODE;
 use crate::jsonrpc_common::ExecuteReadOnlyResponseLw;
@@ -28,7 +28,7 @@ pub enum DeployError {
     #[error("Unable to serialize the datastore (for gas estimation)")]
     Serialize(#[from] SerializeError),
     #[error("Unable to estimate gas cost, response: {0:?}")]
-    InvalidGasEstimation(Box<Vec<ExecuteReadOnlyResponseLw>>),
+    InvalidGasEstimation(Vec<ExecuteReadOnlyResponseLw>),
     #[error("Max gas == {0:?} but should be > {1} && < {2}")]
     Gas(u64, u64, u64),
     #[error("Invalid address retrieved from events: {0}")]
@@ -182,7 +182,7 @@ pub async fn deploy_smart_contract(
     if let Some(fee) = args.fee {
         if fee < minimal_fee {
             // TODO: warn!
-            println!("Fee is too low: {} (minimal fee: {})", fee, minimal_fee);
+            println!("Fee is too low: {fee} (minimal fee: {minimal_fee})");
         }
     }
 
@@ -212,7 +212,7 @@ pub async fn deploy_smart_contract(
                     // but this is working for deployment?
                     res.gas_cost
                 } else {
-                    return Err(DeployError::InvalidGasEstimation(Box::new(res)));
+                    return Err(DeployError::InvalidGasEstimation(res));
                 }
             }
         };

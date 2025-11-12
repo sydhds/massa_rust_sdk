@@ -10,8 +10,8 @@
 
 mod as_slice;
 mod as_vec;
-mod memory;
 mod context;
+mod memory;
 
 use lol_alloc::LeakingPageAllocator;
 #[global_allocator]
@@ -80,7 +80,7 @@ extern "C" {
     pub fn assembly_script_chain_id() -> u64;
 
     #[link_name = "assembly_script_get_remaining_gas"]
-    pub fn  assembly_script_get_remaining_gas() -> u64;
+    pub fn assembly_script_get_remaining_gas() -> u64;
 }
 
 #[no_mangle]

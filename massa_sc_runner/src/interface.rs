@@ -358,12 +358,10 @@ impl Interface for MassaScRunnerInterface {
     }
 
     fn get_call_stack(&self) -> massa_sc_runtime::Result<Vec<String>> {
-        Ok(
-            vec![
-                "AU1Yvq49utdezr496dHbRj3TMjqsCh2awggjfGraHoddE7XfEkpY".to_string(),
-                "AS1GFocKuZKiSr2Gcu8y69fraPEqs7xYWvEFikTKcThYC38sBFBH".to_string(),
-            ]
-        )
+        Ok(vec![
+            "AU1Yvq49utdezr496dHbRj3TMjqsCh2awggjfGraHoddE7XfEkpY".to_string(),
+            "AS1GFocKuZKiSr2Gcu8y69fraPEqs7xYWvEFikTKcThYC38sBFBH".to_string(),
+        ])
     }
 
     #[named]

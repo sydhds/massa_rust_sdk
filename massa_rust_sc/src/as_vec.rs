@@ -175,9 +175,9 @@ impl<T: Pod> AsMemoryModel for AsVec<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::string::ToString;
     use crate::{generate_event, get_data, set_data, AsSlice};
     use alloc::format;
+    use alloc::string::ToString;
     use wasm_test::*;
 
     #[wasm_test]

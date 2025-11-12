@@ -1,19 +1,18 @@
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use reqwest::Client;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::json;
 // internal
 use crate::MassaJsonRpc;
 
 pub struct MassaRpcClient {
     client: Client,
-    url : String,
+    url: String,
 }
 
 impl MassaRpcClient {
     pub fn new(url: impl AsRef<str>) -> Self {
         Self {
-            client: Client::builder()
-                .build().unwrap(),
+            client: Client::builder().build().unwrap(),
             url: url.as_ref().to_string(),
         }
     }
@@ -23,8 +22,11 @@ impl MassaJsonRpc for MassaRpcClient {
     type RpcParameters = serde_json::Value;
     type RpcError = reqwest::Error;
 
-    async fn post<R: DeserializeOwned>(&self, method: &str, mut params: Self::RpcParameters) -> Result<R, Self::RpcError> {
-
+    async fn post<R: DeserializeOwned>(
+        &self,
+        method: &str,
+        mut params: Self::RpcParameters,
+    ) -> Result<R, Self::RpcError> {
         #[allow(dead_code)]
         #[derive(Debug, Deserialize)]
         struct Response<R> {
@@ -54,19 +56,19 @@ impl MassaJsonRpc for MassaRpcClient {
 
     fn prepare_params<T: Serialize>(params: T) -> Self::RpcParameters {
         json!({
-                "jsonrpc": "2.0",
-                "method": "",
-                "params": [params],
-                "id": 1
-            })
+            "jsonrpc": "2.0",
+            "method": "",
+            "params": [params],
+            "id": 1
+        })
     }
 
     fn empty_params() -> Self::RpcParameters {
         json!({
-                "jsonrpc": "2.0",
-                "method": "",
-                "params": [],
-                "id": 1
-            })
+            "jsonrpc": "2.0",
+            "method": "",
+            "params": [],
+            "id": 1
+        })
     }
 }

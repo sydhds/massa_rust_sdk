@@ -1,42 +1,38 @@
 mod deploy;
-mod jsonrpc_common;
+mod deploy_sc;
 #[cfg(feature = "jsonrpsee")]
 mod jsonrpc;
+mod jsonrpc_common;
 #[cfg(feature = "reqwest")]
 mod jsonrpc_reqwest;
-mod deploy_sc;
 
 // exports
-pub use jsonrpc_common::MassaJsonRpc;
+pub use deploy_sc::{DeployerArgs, deploy_smart_contract};
 #[cfg(feature = "jsonrpsee")]
 pub use jsonrpc::MassaRpcClient;
+pub use jsonrpc_common::MassaJsonRpc;
 #[cfg(feature = "reqwest")]
 pub use jsonrpc_reqwest::MassaRpcClient;
-pub use deploy_sc::{deploy_smart_contract, DeployerArgs};
 // massa re exports
-pub use massa_signature::KeyPair;
-pub use massa_models::{
-    operation::OperationId,
-    address::Address,
-};
 pub use massa_api_exports::{
-    node::NodeStatus,
     address::AddressInfo,
-    execution::{ReadOnlyCall, ReadOnlyResult, ReadOnlyBytecodeExecution},
+    execution::{ReadOnlyBytecodeExecution, ReadOnlyCall, ReadOnlyResult},
+    node::NodeStatus,
 };
+pub use massa_models::{address::Address, operation::OperationId};
+pub use massa_signature::KeyPair;
 
 pub const BUILDNET_URL: &str = "https://buildnet.massa.net/api/v2";
 pub const BUILDNET_CHAINID: u64 = 77658366;
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-    use massa_models::address::Address;
     use super::*;
+    use massa_models::address::Address;
+    use std::str::FromStr;
 
     #[tokio::test]
     async fn test_get_status() {
-
         let client = MassaRpcClient::new(BUILDNET_URL);
         let node_status = client.get_status().await.unwrap(); //  get_status(BUILDNET_URL).await.unwrap();
         println!("{}", "#".repeat(20));
@@ -46,7 +42,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_addresses() {
-
         let addresses = vec![
             Address::from_str("AU1Yvq49utdezr496dHbRj3TMjqsCh2awggjfGraHoddE7XfEkpY").unwrap(),
         ];

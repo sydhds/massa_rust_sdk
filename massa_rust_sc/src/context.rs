@@ -10,7 +10,6 @@ const COMMA_CHAR: u16 = 44; // == ','
 /// Under the hood, this method verifies that the account calling this function (either the user
 /// creating the operation or an upper contract) has write access to the data of the current account
 pub fn is_deploying_contract() -> bool {
-
     // massa-as-sdk code: function isDeployingContract
     // https://github.com/massalabs/massa-as-sdk/blob/main/assembly/std/context.ts
 
@@ -24,9 +23,7 @@ pub fn is_deploying_contract() -> bool {
             // but encoded as utf16 string (see as-ffi-bindings - string_ptr.rs file for details)
             let call_stack = AsSlice::<u16>::from(call_stack as *const u8);
 
-            let mut call_stack_split = call_stack
-                .as_ref()
-                [1..call_stack.len() - 1] // remove '[' && ']' characters
+            let mut call_stack_split = call_stack.as_ref()[1..call_stack.len() - 1] // remove '[' && ']' characters
                 .rsplitn(2, |c| *c == COMMA_CHAR);
 
             // Unwrap safe: assume call_stack string is formatted as expected (see the above comment)
@@ -39,13 +36,11 @@ pub fn is_deploying_contract() -> bool {
             // https://github.com/massalabs/massa-as-sdk/blob/main/assembly/std/address.ts
             // Note: slicing with 2..len - 2 is to remove the following characters: \"
             callee[2..callee.len() - 2] != caller[2..caller.len() - 2]
-
         } else {
             false
         }
     }
 }
-
 
 pub fn get_call_stack<'a>() -> AsSlice<'a, u16> {
     unsafe {
@@ -62,10 +57,9 @@ pub fn get_call_stack<'a>() -> AsSlice<'a, u16> {
 ///
 /// The "callee" refers to the contract that is currently being executed.
 pub fn callee<'a>(call_stack: &'a AsSlice<'a, u16>) -> &'a [u16] {
-    let mut call_stack_split = call_stack
-        .as_ref()
-        [1..call_stack.len() - 1] // remove '[' && ']' characters
-        .rsplitn(1, |c| *c == COMMA_CHAR);
+    let mut call_stack_split = call_stack.as_ref()[1..call_stack.len() - 1] // remove '[' && ']' characters
+        // https://rust-lang.github.io/rust-clippy/master/index.html#suspicious_splitn
+        .rsplitn(1 + 1, |c| *c == COMMA_CHAR);
     // Unwrap safe: assume call_stack string is formatted as expected (see the above comment)
     let callee = call_stack_split.next().unwrap();
     &callee[2..callee.len() - 2]
@@ -76,10 +70,9 @@ pub fn callee<'a>(call_stack: &'a AsSlice<'a, u16>) -> &'a [u16] {
 /// The caller is the person or the smart contract that directly called
 /// the pending function.
 pub fn caller<'a>(call_stack: &'a AsSlice<'a, u16>) -> &'a [u16] {
-    let mut call_stack_split = call_stack
-        .as_ref()
-        [1..call_stack.len() - 1] // remove '[' && ']' characters
-        .rsplitn(1, |c| *c == COMMA_CHAR);
+    let mut call_stack_split = call_stack.as_ref()[1..call_stack.len() - 1] // remove '[' && ']' characters
+        // https://rust-lang.github.io/rust-clippy/master/index.html#suspicious_splitn
+        .rsplitn(1 + 1, |c| *c == COMMA_CHAR);
     let callee = call_stack_split.next().unwrap();
     // Note: call stack len can be < 2. In this case, in massa-as-sdk code, callee is returned as caller
     let caller = call_stack_split.next();
@@ -94,11 +87,9 @@ pub fn caller<'a>(call_stack: &'a AsSlice<'a, u16>) -> &'a [u16] {
 
 /// Returns the address of the initial transaction creator (originator).
 pub fn transaction_creator<'a>(call_stack: &'a AsSlice<'a, u16>) -> &'a [u16] {
-    let mut call_stack_split = call_stack
-        .as_ref()
-        [1..call_stack.len() - 1] // remove '[' && ']' characters
-        .splitn(1, |c| *c == COMMA_CHAR);
+    let mut call_stack_split = call_stack.as_ref()[1..call_stack.len() - 1] // remove '[' && ']' characters
+        // https://rust-lang.github.io/rust-clippy/master/index.html#suspicious_splitn
+        .splitn(1 + 1, |c| *c == COMMA_CHAR);
     let creator = call_stack_split.next().unwrap();
     &creator[2..creator.len() - 2]
 }
-

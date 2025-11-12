@@ -1,17 +1,9 @@
 use jsonrpsee::{
-    core::{
-        client,
-        client::ClientT,
-        params::ArrayParams,
-        
-    }, 
-    http_client::{HttpClient, HttpClientBuilder}, 
-    rpc_params
+    core::{client, client::ClientT, params::ArrayParams},
+    http_client::{HttpClient, HttpClientBuilder},
+    rpc_params,
 };
-use serde::{
-    de::DeserializeOwned,
-    Serialize
-};
+use serde::{Serialize, de::DeserializeOwned};
 // internal
 use crate::jsonrpc_common::MassaJsonRpc;
 
@@ -31,7 +23,11 @@ impl MassaJsonRpc for MassaRpcClient {
     type RpcParameters = ArrayParams;
     type RpcError = client::Error;
 
-    async fn post<R: DeserializeOwned>(&self, method: &str, params: Self::RpcParameters) -> Result<R, Self::RpcError> {
+    async fn post<R: DeserializeOwned>(
+        &self,
+        method: &str,
+        params: Self::RpcParameters,
+    ) -> Result<R, Self::RpcError> {
         self.client.request(method, params).await
     }
 

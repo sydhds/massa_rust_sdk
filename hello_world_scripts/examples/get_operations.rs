@@ -1,4 +1,4 @@
-use massa_rust_web3::{BUILDNET_URL, OperationId, MassaRpcClient, MassaJsonRpc};
+use massa_rust_web3::{BUILDNET_URL, MassaJsonRpc, MassaRpcClient, OperationId};
 use std::str::FromStr;
 
 #[tokio::main]
