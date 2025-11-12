@@ -1,6 +1,6 @@
 use clap::Parser;
 use massa_rust_web3::{
-    Address, BUILDNET_URL, ReadOnlyCall, ReadOnlyResult, execute_read_only_call,
+    Address, BUILDNET_URL, MassaJsonRpc, MassaRpcClient, ReadOnlyCall, ReadOnlyResult,
 };
 use std::str::FromStr;
 
@@ -45,7 +45,9 @@ async fn main() {
         fee: None,
     };
 
-    let hello = execute_read_only_call(BUILDNET_URL, vec![read_params_])
+    let client = MassaRpcClient::new(BUILDNET_URL);
+    let hello = client
+        .execute_read_only_call(vec![read_params_])
         .await
         .unwrap();
 

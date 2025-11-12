@@ -4,7 +4,10 @@ extern crate alloc;
 // rust crates
 use alloc::format;
 // internal
-use massa_rust_sc::{generate_event, get_data, set_data, to_as_array, to_as_slice, AsSlice, AsVec};
+use massa_rust_sc::{
+    generate_event, get_data, is_deploying_contract, set_data, to_as_array, to_as_slice, AsSlice,
+    AsVec,
+};
 // third-party
 use utf16_lit::utf16;
 
@@ -18,12 +21,14 @@ const VALUE: AsSlice<u8> = to_as_slice!("hello");
 
 #[no_mangle]
 extern "C" fn constructor() {
+    assert!(is_deploying_contract());
+
     // Use generateEvent
     // Note: generateEvent requires an UTF16 encoded string as input
     generate_event(EXAMPLE);
 
     // Use generateEvent but with dynamic data (dynamic Rust string)
-    let msg = format!("hello there {}!!", 900);
+    let msg = format!("hello there {}!!", 42);
     let msg_utf16 = msg.encode_utf16().collect::<AsVec<u16>>();
     generate_event(msg_utf16);
 
@@ -49,12 +54,13 @@ fn panic(_panic: &core::panic::PanicInfo<'_>) -> ! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::string::ToString;
     use core::ops::Deref;
     use massa_rust_sc::{has_data, AsSlice};
+    use wasm_test::*;
 
-    #[test]
-    #[no_mangle]
-    fn __MASSA_RUST_SDK_UNIT_TEST_hello_1() {
+    #[wasm_test]
+    fn test_hello_1() {
         // Storage set (before calling hello())
         const T_KEY: AsSlice<u8> = to_as_slice!("greeting_key");
         const T_VALUE: AsSlice<u8> = to_as_slice!("hellw");
@@ -69,7 +75,7 @@ mod tests {
         {
             // With AsSlice<u8>
             let res: AsSlice<u8> = AsSlice::from(res_ptr);
-            let expected = bytemuck::must_cast_slice(&utf16!("hellw"));
+            let expected: &[u8] = bytemuck::must_cast_slice(&utf16!("hellw"));
             assert_eq!(res.deref(), expected);
         }
 

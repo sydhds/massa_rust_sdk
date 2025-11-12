@@ -115,6 +115,7 @@ This section is for developers that want to hack on the massa rust sdk code itse
 ## massa_rust_web3
 
 * cargo test -p massa_rust_web3
+  * cargo test -p massa_rust_web3 --features reqwest --no-default-features 
 
 ## Others
 

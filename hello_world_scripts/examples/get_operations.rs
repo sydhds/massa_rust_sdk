@@ -1,4 +1,4 @@
-use massa_rust_web3::{BUILDNET_URL, OperationId, get_operations};
+use massa_rust_web3::{BUILDNET_URL, MassaJsonRpc, MassaRpcClient, OperationId};
 use std::str::FromStr;
 
 #[tokio::main]
@@ -8,7 +8,9 @@ async fn main() {
 
     let op_ids =
         vec![OperationId::from_str(op_id.as_str()).expect("Cannot create op_id from first arg")];
-    let result = get_operations(BUILDNET_URL, op_ids).await;
+
+    let client = MassaRpcClient::new(BUILDNET_URL);
+    let result = client.get_operations(op_ids).await;
 
     if let Some(log_file) = std::env::args().nth(2) {
         let log_content = format!("{:#?}", result);

@@ -177,10 +177,11 @@ mod tests {
     use super::*;
     use crate::{generate_event, get_data, set_data, AsSlice};
     use alloc::format;
+    use alloc::string::ToString;
+    use wasm_test::*;
 
-    #[test]
-    #[no_mangle]
-    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_append() {
+    #[wasm_test]
+    fn test_as_vec_append() {
         let mut v0 = AsVec::from_iter(vec![1u8, 2, 3]);
         let mut v1 = AsVec::from_iter(vec![255u8]);
         let expected_len = v0.len() + v1.len();
@@ -189,9 +190,8 @@ mod tests {
         assert_eq!(v0.len(), 0);
     }
 
-    #[test]
-    #[no_mangle]
-    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_push() {
+    #[wasm_test]
+    fn test_as_vec_push() {
         let v0 = vec![1u8, 2, 3];
         assert_eq!(v0.len(), 3);
         let mut av0 = AsVec::from_iter(vec![1u8, 2, 3]);
@@ -213,9 +213,8 @@ mod tests {
         assert_eq!(av_0.len(), 0);
     }
 
-    #[test]
-    #[no_mangle]
-    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_insert() {
+    #[wasm_test]
+    fn test_as_vec_insert() {
         let mut v = AsVec::from_iter(vec![1u8, 255]);
         assert_eq!(v.len(), 2);
         v.insert(1, 42);
@@ -229,9 +228,8 @@ mod tests {
         assert_eq!(&v.__as_raw_slice()[4..], &[40, 1, 42, 255, 41]);
     }
 
-    #[test]
-    #[no_mangle]
-    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_pop() {
+    #[wasm_test]
+    fn test_as_vec_pop() {
         let mut v = AsVec::from_iter(vec![1u8, 255]);
         assert_eq!(v.len(), 2);
         assert_eq!(v.pop(), Some(255));
@@ -240,9 +238,8 @@ mod tests {
         assert_eq!(v.len(), 0);
     }
 
-    #[test]
-    #[no_mangle]
-    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_clear() {
+    #[wasm_test]
+    fn test_as_vec_clear() {
         let mut v = AsVec::from_iter(vec![1u8, 2, 3]);
 
         assert_eq!(v.len(), 3);
@@ -260,9 +257,8 @@ mod tests {
         assert_eq!(v.len(), 1);
     }
 
-    #[test]
-    #[no_mangle]
-    fn __MASSA_RUST_SDK_UNIT_TEST_as_vec_remove() {
+    #[wasm_test]
+    fn test_as_vec_remove() {
         {
             let mut v = AsVec::from_iter(vec![1u8, 2, 3]);
             assert_eq!(v.len(), 3);
